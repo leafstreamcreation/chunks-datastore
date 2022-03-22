@@ -47,7 +47,7 @@ class InvitationModel {
             if (invHash === codeHash) {
                 const inv = this.invitations[i];
                 this.invitations.splice(i, 1);
-                return Promise.resolve([...inv]);
+                return Promise.resolve({...inv});
             }
         }
         return Promise.resolve(null);
@@ -61,32 +61,46 @@ class InvitationModel {
 class UserModel {
 
   constructor(users) {
-    // this._id = session?.id ? session.id : null;
-    // this.expires = session?.expires ? session.expires : null;
+    this.currentId = 1;
+    const userArray = [];
+    users.forEach(({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123"}) => {
+        userArray.push({ _id: this.currentId, name, credentials, updateKey: 1, data: [] });
+        this.currentId += 1;
+    });
+    this.users = keyBy(userArray, "_id");
   }
 
-  create({ expires }) {
-    // this._id = 1;
-    // this.expires = expires;
-    // return Promise.resolve({ ...this });
+  create({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123" }) {
+    this.currentId += 1;
+    const newUser = { _id: this.currentId, name, credentials, updateKey: 1, data: [] };
+    this.users[`${this.currentId}`] = newUser;
+    return Promise.resolve({ ...newUser });
   }
 
-  findOne() {
+  findOne({ credentials }) {
     return {
       exec: () => {
-        // return Promise.resolve(this._id ? { ...this } : null);
+        const users = Object.values(this.users);
+        for (let i = 0; i < users.length; i++) {
+            const uCred = users[i].credentials;
+            if (uCred === credentials) {
+                const u = users[i];
+                return Promise.resolve({...u});
+            }
+        }
+        return Promise.resolve(null);
       }
     };
   }
 
-  findOneAndDelete() {
+  findByIdAndUpdate(id, { data }) {
     return {
       exec: () => {
-        // if (!this._id) return Promise.resolve(null);
-        // const copy = { ...this }
-        // this._id = null;
-        // this.expires = null;
-        // return Promise.resolve(copy);
+        const user = this.users[`${id}`];
+        if (!user) return Promise.resolve(null);
+        user.data = data;
+        this.users[`${id}`] = user;
+        return Promise.resolve({...user});
       }
     };
   }
