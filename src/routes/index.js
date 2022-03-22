@@ -50,7 +50,12 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     // const newSession = await sessionModel.create({ expires: new Date(Date.now() + SESSION_EXPIRATION) });
     // if (newSession) responseData.session = newSession;
   
-  
+
+    //Login:
+    //username and password in
+    //combine and hash to credentials
+    //if no user with credentials -> incorrect username and/or password
+    //if user with credentials -> user id, data, nextUpdateKey
   
     return res.status(200).json(responseData);
   };
@@ -58,23 +63,42 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
 
 
     const signupHandler = async (req, res, next, { userModel = User, invitationModel = Invitation }) => {
-    return res.status(200).json(responseData);
+      //Signup:
+      //invitation code, username, and password in
+      //bcrypt code hash 
+      //get invitation with code hash
+      //if no invitation match -> invitation invalid
+      //create new user -> user id, nextUpdateKey
+      return res.status(200).json(responseData);
   };
   router.post("/signup", signupHandler);
   
     const inviteHandler = async (req, res, next, { stateModel = State, invitationModel = Invitation }) => {
-    return res.status(200).json(responseData);
+      //Invite:
+      //admin password in
+      //bcrypt admin password
+      //if no password match -> password invalid
+      //generate invite code
+      //create invitation -> invite code
+      return res.status(200).json(responseData);
   };
   router.post("/invite", inviteHandler);
   
     const updateHandler = async (req, res, next, { userModel = User }) => {
-    return res.status(200).json(responseData);
+      //Update:
+      //user id, update key, update in
+      //if no user id && update key match -> re login
+      // generate next update key and save
+      // Decrypt user data
+      // JSON.parse decrypted file
+      // Now we have an array of activities which we can keyBy id
+      // Perform updates and deletes
+      // Back to array and push created items
+      // Stringify
+      // Encrypt
+      // Save user data -> next update key
+      return res.status(200).json(responseData);
   };
   router.post("/update", userPrivileged, updateHandler);
   
-    const indexHandler = async (req, res, next, { userModel = User }) => {
-    return res.status(200).json(responseData);
-  };
-  router.post("/index", userPrivileged, indexHandler);
-  
-  module.exports = { router, loginHandler, signupHandler, inviteHandler, updateHandler, indexHandler };
+  module.exports = { router, loginHandler, signupHandler, inviteHandler, updateHandler };

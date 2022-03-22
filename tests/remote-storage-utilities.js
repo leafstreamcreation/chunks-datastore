@@ -1,9 +1,9 @@
-const bcrypt = require("bcryptjs");
+const { keyBy } = require("lodash");
 
 class StateModel {
-  constructor(state) {
-    this.schedulerEngaged = state?.engaged ? true : false;
-    this.leaseId = state?.leaseId ? state.leaseId : 1;
+
+  constructor(pass = "admin123") {
+    this.adminHash = pass;
   }
 
   findOne() {
@@ -21,45 +21,60 @@ class StateModel {
 
 
 
-class PassModel {
-  static async init(password) {
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(password, salt);
-    return new PassModel(hash);
+class InvitationModel {
+
+  constructor(invitations) {
+    this.currentId = 1;
+    this.invitations = [];
+    invitations.forEach(({ codeHash = "ABCD", expires = new Date(Date.now() + 1000 * 60 * 30) }) => {
+        this.invitations.push({ _id: this.currentId, codeHash: codeHash, expires: expires });
+        this.currentId += 1;
+    });
   }
 
-  constructor(hash) {
-    this.hash = hash;
+  create({ codeHash = "ABCD", expires = new Date(Date.now() + 1000 * 60 * 30) }) {
+        const newInvitation = { _id: this.currentId, codeHash: codeHash, expires: expires }
+        this.currentId += 1;
+        this.invitations.push(newInvitation);
+        return Promise.resolve({ ...newInvitation });
   }
 
-  findOne() {
+  findOneAndDelete({ codeHash }) {
     return {
       exec: () => {
-        return Promise.resolve({ ...this });
+        for (let i = 0; i < this.invitations.length; i++) {
+            const invHash = this.invitations[i].codeHash;
+            if (invHash === codeHash) {
+                const inv = this.invitations[i];
+                this.invitations.splice(i, 1);
+                return Promise.resolve([...inv]);
+            }
+        }
+        return Promise.resolve(null);
       }
     };
   }
-
 }
 
 
 
-class SessionModel {
-  constructor(session) {
-    this._id = session?.id ? session.id : null;
-    this.expires = session?.expires ? session.expires : null;
+class UserModel {
+
+  constructor(users) {
+    // this._id = session?.id ? session.id : null;
+    // this.expires = session?.expires ? session.expires : null;
   }
 
   create({ expires }) {
-    this._id = 1;
-    this.expires = expires;
-    return Promise.resolve({ ...this });
+    // this._id = 1;
+    // this.expires = expires;
+    // return Promise.resolve({ ...this });
   }
 
   findOne() {
     return {
       exec: () => {
-        return Promise.resolve(this._id ? { ...this } : null);
+        // return Promise.resolve(this._id ? { ...this } : null);
       }
     };
   }
@@ -67,11 +82,11 @@ class SessionModel {
   findOneAndDelete() {
     return {
       exec: () => {
-        if (!this._id) return Promise.resolve(null);
-        const copy = { ...this }
-        this._id = null;
-        this.expires = null;
-        return Promise.resolve(copy);
+        // if (!this._id) return Promise.resolve(null);
+        // const copy = { ...this }
+        // this._id = null;
+        // this.expires = null;
+        // return Promise.resolve(copy);
       }
     };
   }
@@ -79,28 +94,28 @@ class SessionModel {
 }
 
 const MockDB = async (seed = {}) => {
-  const { session, state, password } = seed;
-  const passModel = await PassModel.init(password || "secret123");
+  const { state, invitations, users } = seed;
   const stateModel = new StateModel(state);
-  const sessionModel = new SessionModel(session);
-  return Promise.resolve({ passModel, stateModel, sessionModel });
+  const invitationModel = new InvitationModel(invitations);
+  const userModel = new UserModel(users);
+  return Promise.resolve({ stateModel, invitationModel, userModel });
 };
 
-const MockReq = (password = "secret123", lease = 1, clientSide = true) => {
-  return {
-    body:{ password },
-    headers: {
-      "lease-id":lease,
-      "client-delegation": clientSide,
-    },
-    app: {
-      locals: {
-        scheduler: {
-          engage: jest.fn().mockResolvedValue(true)
-        }
-      }
+const MockReq = ({ username = "friend", password = "secret123" }, userId = 1, updateKey = 1) => {
+    const req = { 
+        headers: {},
+    };
+    if (username !== null && password !== null) req.body = { username, password };
+    if (userId !== null) {
+        req.headers.user = userId;
+        //encoding and JSONifying are abstracted into the request user
+        req.user = { 
+            pack: jest.fn(x => Promise.resolve(x)),
+            unpack: jest.fn(x => Promise.resolve(x)),
+        };
     }
-  };
+    if (updateKey !== null) req.headers.update = updateKey;
+    return req;
 };
 
 const MockRes = () => {
