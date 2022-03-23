@@ -6,14 +6,12 @@ const Invitation = require("../models/Invitation.model");
 const INVITATION_EXPIRATION = 1000 * 60 * 60 * 24;
 const User = require("../models/User.model");
 
-const bcrypt = require("bcryptjs");
-const saltRounds = 13;
-
 const ciphers = require("./middleware/ciphers");
 router.use(ciphers);
 
 const userPrivileged = require("./middleware/userPrivileged");
 const { ERRORMSG } = require("../errors");
+
 
 router.get("/", (req, res, next) => {
   res.status(200).send("Chonk");

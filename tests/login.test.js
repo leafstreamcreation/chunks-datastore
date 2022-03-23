@@ -17,6 +17,7 @@ describe("Spec for login route", () => {
         
         const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
         expect(instance.userModel.users["2"]).toEqual(user2);
+        expect(Object.values(instance.userModel.users).length).toBe(2);
     
         await login(req, res, null, instance);
         const loginResponse = { _id: 2, activities: [], updateKey: 1 };
