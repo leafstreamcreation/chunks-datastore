@@ -23,7 +23,7 @@ class StateModel {
 
 class InvitationModel {
 
-  constructor(invitations) {
+  constructor(invitations = []) {
     this.currentId = 1;
     this.invitations = [];
     invitations.forEach(({ codeHash = "ABCD", expires = new Date(Date.now() + 1000 * 60 * 30) }) => {
@@ -63,7 +63,8 @@ class UserModel {
   constructor(users) {
     this.currentId = 1;
     const userArray = [];
-    users.forEach(({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123"}) => {
+    users.forEach(({ name = "RaquelettaMoss", password = "secret123" }) => {
+        const credentials = name + password;
         userArray.push({ _id: this.currentId, name, credentials, updateKey: 1, data: [] });
         this.currentId += 1;
     });
@@ -107,27 +108,28 @@ class UserModel {
 
 }
 
-const MockDB = async (seed = {}) => {
+const MockDB = (seed = {}) => {
   const { state, invitations, users } = seed;
   const stateModel = new StateModel(state);
   const invitationModel = new InvitationModel(invitations);
   const userModel = new UserModel(users);
-  return Promise.resolve({ stateModel, invitationModel, userModel });
+  return { stateModel, invitationModel, userModel };
 };
 
-const MockReq = ({ username = "friend", password = "secret123" }, userId = 1, updateKey = 1) => {
+const MockReq = ({ name = "friend", password = "secret123" }, userId = 1, updateKey = 1) => {
     const req = { 
         headers: {},
+        ciphers: {
+            obscure: jest.fn(x => Promise.resolve(x)),
+            reveal: jest.fn(({ data }) => Promise.resolve(data)),
+            credentials: jest.fn((x,y) => Promise.resolve(x+y)),
+            compare: jest.fn((x,y) => Promise.resolve(x===y)),
+        }
     };
-    if (username !== null && password !== null) req.body = { username, password };
-    if (userId !== null) {
-        req.headers.user = userId;
-        //encoding and JSONifying are abstracted into the request user
-        req.user = { 
-            pack: jest.fn(x => Promise.resolve(x)),
-            unpack: jest.fn(x => Promise.resolve(x)),
-        };
-    }
+    if (name || password) req.body = {};
+    if (name) req.body.name = name;
+    if (password) req.body.password = password;
+    if (userId !== null) req.headers.user = userId;
     if (updateKey !== null) req.headers.update = updateKey;
     return req;
 };

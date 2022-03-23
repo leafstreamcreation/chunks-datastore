@@ -1,29 +1,59 @@
-const MockDB = require("./SchedulerTestUtilities");
+const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
+const { loginHandler: login } = require("../src/routes/index");
+const { ERRORMSG } = require("../src/errors");
 
-const Scheduler = require("../../modules/scheduler/Scheduler");
-
-const LinearSchedule = require("../../modules/scheduler/LinearSchedule");
-
-describe("Scheduler tests; depends on LinearSchedule tests", () => {
+describe("Spec for login route", () => {
   
-    test("login with valid credentials creates a session", async () => {
-        const password = "DEADBEEF";
-        const instance = await MockDB({password});
-        const req = MockReq(password);
+    test("login with valid credentials returns userId, json data, and nextUpdateKey", async () => {
+        const password = "foo";
+        const name = "user2";
+        const users = [
+            { name: "user1", password },
+            { name, password }
+        ];
+        const instance =  MockDB({ users });
+        const req = MockReq({ name, password });
         const res = MockRes();
+        
+        const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
+        expect(instance.userModel.users["2"]).toEqual(user2);
     
-        expect(instance.sessionModel.findOne().exec()).resolves.toBe(null);
-    
-        await loginHandler(req, res, null, instance);
-        const approxExpireTime = Date.now() + 1000 * 60 * 60 * 24;
-    
-        const newSession = await instance.sessionModel.findOne().exec();
-        expect(newSession).not.toBe(null);
-        expect(newSession._id).toBe(1);
-        const deviation = Math.abs(1 - (newSession.expires.getTime() / approxExpireTime));
-        expect(deviation).toBeCloseTo(0, 0);
+        await login(req, res, null, instance);
+        const loginResponse = { _id: 2, activities: [], updateKey: 1 };
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ session: newSession, leaseId: null });
-    
-      });
+        expect(res.json).toHaveBeenCalledWith(loginResponse);
+
+        expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
+        expect(req.ciphers.compare).toHaveBeenCalled();
+        expect(req.ciphers.reveal).toHaveBeenCalled();
+    });
+
+    test("login with invalid credentials returns errors", async () => {
+        const password = "foo";
+        const name = "user2";
+        const users = [
+            { name: "user1", password },
+            { name, password }
+        ];
+        const instance =  MockDB({ users });
+
+        const noname = MockReq({ name: null, password });
+        const nonameRes = MockRes();
+        await login(noname, nonameRes, null, instance);
+        expect(nonameRes.status).toHaveBeenCalledWith(400);
+        expect(nonameRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGUSERNAME);
+
+        const nopass = MockReq({ name, password: null });
+        const nopassRes = MockRes();
+        await login(nopass, nopassRes, null, instance);
+        expect(nopassRes.status).toHaveBeenCalledWith(400);
+        expect(nopassRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGPASSWORD);
+
+        const badPass = MockReq({ name, password: "foobar" });
+        const badPassRes = MockRes();
+        await login(badPass, badPassRes, null, instance);
+        expect(badPassRes.status).toHaveBeenCalledWith(403);
+        expect(badPassRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDCREDENTIALS);
+
+    });
 });

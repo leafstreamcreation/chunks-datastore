@@ -1,4 +1,11 @@
-module.exports = (app) => {
+module.exports = {
+  ERRORMSG: {
+    CTD: { msg: "Unexpected error; investigation required" },
+    MISSINGPASSWORD: { msg: "missing password" },
+    MISSINGUSERNAME: { msg: "missing user name" },
+    INVALIDCREDENTIALS: { msg: "invalid credentials" },
+  },
+  handleErrors: (app) => {
     app.use((req, res, next) => {
       // this middleware runs whenever requested page is not available
       res.status(404).json({errorMessage: "Endpoint not found"});
@@ -14,4 +21,5 @@ module.exports = (app) => {
         res.status(500).res.json({ errorMessage: err.message });
       }
     });
-  };
+  }
+};
