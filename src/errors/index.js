@@ -6,6 +6,7 @@ module.exports = {
     MISSINGTICKET: { msg: "missing ticket" },
     INVALIDCREDENTIALS: { msg: "invalid credentials" },
     INVALIDTICKET: { msg: "invalid ticket" },
+    TICKETEXISTS: { msg: "ticket already exists" },
   },
   handleErrors: (app) => {
     app.use((req, res, next) => {

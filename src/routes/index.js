@@ -55,13 +55,21 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
   router.post("/signup", signupHandler);
   
     const inviteHandler = async (req, res, next, { stateModel = State, invitationModel = Invitation }) => {
-      //Invite:
-      //admin password in
-      //bcrypt admin password
-      //if no password match -> password invalid
-      //generate invite code
-      //create invitation -> invite code
-      return res.status(200).json(responseData);
+      const { password, ticket } = req.body;
+      if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
+      if (!ticket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
+
+      const adminHashCreate = req.ciphers.credentials(password).catch((error) => res.status(500).json(ERRORMSG.CTD));
+      const stateFetch = stateModel.findOne().exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+      const [ adminHash, state ] = await Promise.all([ adminHashCreate, stateFetch ]);
+      const match = await req.ciphers.compare(adminHash, state.adminHash).catch((error) => res.status(500).json(ERRORMSG.CTD));
+      if (!match) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
+
+      const codeHash = await req.ciphers.credentials(ticket)
+      const alreadyExists = await invitationModel.findOne({ codeHash }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+      if (alreadyExists) return res.status(403).json(ERRORMSG.TICKETEXISTS);
+      invitationModel.create({ codeHash, expires: new Date(Date.now() + 1000 * 60 * 30) }).catch((error) => res.status(500).json(ERRORMSG.CTD));
+      return res.status(200).json({ ticket });
   };
   router.post("/invite", inviteHandler);
   

@@ -26,8 +26,8 @@ class InvitationModel {
   constructor(invitations = []) {
     this.currentId = 1;
     this.invitations = [];
-    invitations.forEach(({ codeHash = "ABCD", expires = new Date(Date.now() + 1000 * 60 * 30) }) => {
-        this.invitations.push({ _id: this.currentId, codeHash: codeHash, expires: expires });
+    invitations.forEach(({ ticket = "ABCD", expires = new Date(Date.now() + 1000 * 60 * 30) }) => {
+        this.invitations.push({ _id: this.currentId, codeHash: ticket, expires: expires });
         this.currentId += 1;
     });
   }
