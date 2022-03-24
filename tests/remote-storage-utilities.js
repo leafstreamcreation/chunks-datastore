@@ -39,6 +39,21 @@ class InvitationModel {
         return Promise.resolve({ ...newInvitation });
   }
 
+  findOne({ codeHash }) {
+      return {
+        exec: () => {
+            for (let i = 0; i < this.invitations.length; i++) {
+                const invHash = this.invitations[i].codeHash;
+                if (invHash === codeHash) {
+                    const inv = this.invitations[i];
+                    return Promise.resolve({...inv});
+                }
+            }
+            return Promise.resolve(null);
+        }
+      };
+  }
+
   findOneAndDelete({ codeHash }) {
     return {
       exec: () => {
@@ -60,7 +75,7 @@ class InvitationModel {
 
 class UserModel {
 
-  constructor(users) {
+  constructor(users = []) {
     this.currentId = 1;
     const userArray = [];
     users.forEach(({ name = "RaquelettaMoss", password = "secret123" }) => {
@@ -72,9 +87,9 @@ class UserModel {
   }
 
   create({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123" }) {
-    this.currentId += 1;
-    const newUser = { _id: this.currentId, name, credentials, updateKey: 1, data: [] };
-    this.users[`${this.currentId}`] = newUser;
+      const newUser = { _id: this.currentId, name, credentials, updateKey: 1, data: [] };
+      this.users[`${this.currentId}`] = newUser;
+      this.currentId += 1;
     return Promise.resolve({ ...newUser });
   }
 
@@ -116,17 +131,18 @@ const MockDB = (seed = {}) => {
   return { stateModel, invitationModel, userModel };
 };
 
-const MockReq = ({ name = "friend", password = "secret123" }, userId = 1, updateKey = 1) => {
+const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123" }, userId = 1, updateKey = 1) => {
     const req = { 
         headers: {},
         ciphers: {
             obscure: jest.fn(x => Promise.resolve(x)),
             reveal: jest.fn(({ data }) => Promise.resolve(data)),
-            credentials: jest.fn((x,y) => Promise.resolve(x+y)),
+            credentials: jest.fn((x,y = "") => Promise.resolve(x+y)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
         }
     };
-    if (name || password) req.body = {};
+    if (name || password || ticket) req.body = {};
+    if (ticket) req.body.ticket = ticket;
     if (name) req.body.name = name;
     if (password) req.body.password = password;
     if (userId !== null) req.headers.user = userId;

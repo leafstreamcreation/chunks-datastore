@@ -14,12 +14,14 @@ describe("Spec for signup route", () => {
         const instance =  MockDB({ invitations });
         const name = "RacquelettaMoss";
         const password = "secret123";
-        const req = MockReq({ codeHash, name, password });
+        const req = MockReq({ ticket:codeHash, name, password });
         const res = MockRes();
         
         const invitation2 = { _id: 2, codeHash, expires };
         expect(instance.invitationModel.invitations[1]).toEqual(invitation2);
         expect(instance.invitationModel.invitations.length).toBe(2);
+        expect(Object.values(instance.userModel.users).length).toBe(0);
+        console.log(instance.userModel.currentId);
     
         await signup(req, res, null, instance);
         const signupResponse = { _id: 1, activities: [], updateKey: 1 };
@@ -32,8 +34,6 @@ describe("Spec for signup route", () => {
         expect(instance.invitationModel.invitations.length).toBe(1);
 
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.compare).toHaveBeenCalled();
-        expect(req.ciphers.reveal).toHaveBeenCalled();
     });
 
     test("login with invalid credentials returns errors", async () => {
@@ -49,39 +49,39 @@ describe("Spec for signup route", () => {
         
         const instance =  MockDB({ invitations, users });
 
-        const nohash = MockReq({ name, password });
+        const nohash = MockReq({ ticket: null, name, password });
         const nohashRes = MockRes();
         await signup(nohash, nohashRes, null, instance);
         expect(nohashRes.status).toHaveBeenCalledWith(400);
-        expect(nohashRes.json).toHaveBeenCalledWith(nohashResult);
+        expect(nohashRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGTICKET);
 
 
-        const noname = MockReq({ codeHash, password });
+        const noname = MockReq({ ticket:codeHash, name: null, password });
         const nonameRes = MockRes();
         await signup(noname, nonameRes, null, instance);
         expect(nonameRes.status).toHaveBeenCalledWith(400);
-        expect(nonameRes.json).toHaveBeenCalledWith(noNameResult);
+        expect(nonameRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGUSERNAME);
 
 
-        const nopass = MockReq({ codeHash, name });
+        const nopass = MockReq({ ticket:codeHash, name, password: null });
         const nopassRes = MockRes();
         await signup(nopass, nopassRes, null, instance);
         expect(nopassRes.status).toHaveBeenCalledWith(400);
-        expect(nopassRes.json).toHaveBeenCalledWith(nohashResult);
+        expect(nopassRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGPASSWORD);
 
 
-        const badhash = MockReq({ codeHash: "BEEF", name, password });
+        const badhash = MockReq({ ticket: "BEEF", name, password });
         const badhashRes = MockRes();
         await signup(badhash, badhashRes, null, instance);
         expect(badhashRes.status).toHaveBeenCalledWith(403);
-        expect(badhashRes.json).toHaveBeenCalledWith(nohashResult);
+        expect(badhashRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDTICKET);
 
 
-        const badcreds = MockReq({ codeHash, name, password });
+        const badcreds = MockReq({ ticket:codeHash, name, password });
         const badcredsRes = MockRes();
         await signup(badcreds, badcredsRes, null, instance);
         expect(badcredsRes.status).toHaveBeenCalledWith(403);
-        expect(badcredsRes.json).toHaveBeenCalledWith(nohashResult);
+        expect(badcredsRes.json).toHaveBeenCalledWith({ ...ERRORMSG.INVALIDCREDENTIALS, ticketRefund: codeHash });
 
 
         const dbInvitations = [
@@ -89,6 +89,6 @@ describe("Spec for signup route", () => {
             { _id:2, codeHash, expires }
         ];
         expect(instance.invitationModel.invitations).toEqual(dbInvitations);
-        expect(Object.values(instance.userModel.users).length).toBe(0);
+        expect(Object.values(instance.userModel.users).length).toBe(1);
     });
 });

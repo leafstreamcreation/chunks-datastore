@@ -3,7 +3,9 @@ module.exports = {
     CTD: { msg: "Unexpected error; investigation required" },
     MISSINGPASSWORD: { msg: "missing password" },
     MISSINGUSERNAME: { msg: "missing user name" },
+    MISSINGTICKET: { msg: "missing ticket" },
     INVALIDCREDENTIALS: { msg: "invalid credentials" },
+    INVALIDTICKET: { msg: "invalid ticket" },
   },
   handleErrors: (app) => {
     app.use((req, res, next) => {

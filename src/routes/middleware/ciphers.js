@@ -9,7 +9,7 @@ module.exports = (req, res, next) => {
     return Promise.resolve(encryptedData);
   };
 
-  const credentials = async (name, password) => {
+  const credentials = async (name, password = "") => {
     return Promise.resolve(name + password);
   };
 

@@ -22,7 +22,7 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
   
     if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
     if (!name) return res.status(400).json(ERRORMSG.MISSINGUSERNAME);
-
+    
     const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json(ERRORMSG.CTD));
     const user = await userModel.findOne({ credentials }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
     if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
@@ -33,16 +33,24 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     return res.status(200).json({ _id: user._id, activities, updateKey: user.updateKey });
   };
   router.post("/login", loginHandler);
+  
+  
+  const signupHandler = async (req, res, next, { userModel = User, invitationModel = Invitation }) => {
+    const { ticket, name, password } = req.body;
+    if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
+    if (!name) return res.status(400).json(ERRORMSG.MISSINGUSERNAME);
+    if (!ticket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
+    
+    const codeHash = await req.ciphers.credentials(ticket).catch((error) => res.status(500).json(ERRORMSG.CTD));
+    const invitation = await invitationModel.findOne({ codeHash }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+    if (!invitation) return res.status(403).json(ERRORMSG.INVALIDTICKET);
 
-
-    const signupHandler = async (req, res, next, { userModel = User, invitationModel = Invitation }) => {
-      //Signup:
-      //invitation code, username, and password in
-      //bcrypt code hash 
-      //get invitation with code hash
-      //if no invitation match -> invitation invalid
-      //create new user -> user id, nextUpdateKey
-      return res.status(200).json(responseData);
+    const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json(ERRORMSG.CTD));
+    const existingCredentials = await userModel.findOne({ credentials }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+    if (existingCredentials) return res.status(403).json({ ...ERRORMSG.INVALIDCREDENTIALS, ticketRefund:ticket });
+    const newUser = await userModel.create({ name, credentials }).catch((error) => res.status(500).json(ERRORMSG.CTD));
+    invitationModel.findOneAndDelete({ codeHash }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+    return res.status(200).json({ _id: newUser._id, activities: [], updateKey: newUser.updateKey });
   };
   router.post("/signup", signupHandler);
   
