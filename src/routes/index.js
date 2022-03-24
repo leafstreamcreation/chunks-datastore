@@ -17,6 +17,8 @@ router.get("/", (req, res, next) => {
   res.status(200).send("Chonk");
 });
 
+const loginOk = (res, payload) => res.status(200).json(payload);
+
 const loginHandler = async (req, res, next, { userModel = User }) => {
     const { name, password } = req.body;
   
@@ -28,9 +30,18 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
     const passCompare = await req.ciphers.compare(credentials, user.credentials).catch((error) => res.status(500).json(ERRORMSG.CTD));
     if (!passCompare) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
-    
-    const activities = await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD));
-    return res.status(200).json({ _id: user._id, activities, updateKey: user.updateKey });
+    if (req.app.locals.waitingUsers[user._id]) req.app.locals.waitingUsers[user._id] = {
+      res, 
+      payload: {
+        _id: user._id, 
+        activities: await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD)), 
+        updateKey: user.updateKey
+      }
+    };
+    else {
+      const activities = await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD));
+      return loginOk(res, { _id: user._id, activities, updateKey: user.updateKey });
+    }
   };
   router.post("/login", loginHandler);
   
@@ -86,6 +97,7 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
       // Stringify
       // Encrypt
       // Save user data -> next update key
+      // If user waiting for update, login user
       return res.status(200).json(responseData);
   };
   router.post("/update", userPrivileged, updateHandler);

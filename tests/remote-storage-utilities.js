@@ -131,7 +131,7 @@ const MockDB = (seed = {}) => {
   return { stateModel, invitationModel, userModel };
 };
 
-const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123" }, userId = 1, updateKey = 1) => {
+const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123" }, waitlist = {}, userId = 1, updateKey = 1) => {
     const req = { 
         headers: {},
         ciphers: {
@@ -139,7 +139,8 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123" }, u
             reveal: jest.fn(({ data }) => Promise.resolve(data)),
             credentials: jest.fn((x,y = "") => Promise.resolve(x+y)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
-        }
+        },
+        app: { locals: { waitingUsers: waitlist }}
     };
     if (name || password || ticket) req.body = {};
     if (ticket) req.body.ticket = ticket;

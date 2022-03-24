@@ -57,4 +57,22 @@ describe("Spec for login route", () => {
         expect(badPassRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDCREDENTIALS);
 
     });
+
+    test("login waits for updates to complete", async () => {
+        const password = "foo";
+        const name = "user2";
+        const users = [
+            { name: "user1", password },
+            { name, password }
+        ];
+        const instance =  MockDB({ users });
+
+        const req = MockReq({ name, password }, { "2": true });
+        const res = MockRes();
+        await login(req, res, null, instance);
+        expect(req.app.locals.waitingUsers).toEqual({ "2": { res, payload: { _id: 2, activities: [], updateKey: 1 }}})
+        expect(res.status).not.toHaveBeenCalled();
+        expect(res.json).not.toHaveBeenCalled();
+
+    });
 });
