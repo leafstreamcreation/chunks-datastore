@@ -13,6 +13,6 @@ module.exports = async (req, res, next) => {
   delete user.data;
   user.activities = activities;
   req.user = user;
-  req.user.push = (update) => mergeUpdate(update);
+  req.user.push = (activities, update) => mergeUpdate(activities, update);
   next();
 };

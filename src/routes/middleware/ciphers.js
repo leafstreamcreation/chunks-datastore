@@ -11,7 +11,7 @@ module.exports = (req, res, next) => {
     return Promise.resolve(true);
   };
 
-  const obscure = async (user) => {
+  const obscure = async (activities, user) => {
     //activities (json) in user
     //unhash credentials
     //stringify activities

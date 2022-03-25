@@ -110,12 +110,13 @@ class UserModel {
     };
   }
 
-  findByIdAndUpdate(id, { data }) {
+  findByIdAndUpdate(id, { data, updateKey }) {
     return {
       exec: () => {
         const user = this.users[`${id}`];
         if (!user) return Promise.resolve(null);
-        user.data = data;
+        user.data = data || user.data;
+        user.updateKey = updateKey || user.updateKey;
         this.users[`${id}`] = user;
         return Promise.resolve({...user});
       }
@@ -132,12 +133,12 @@ const MockDB = (seed = {}) => {
   return { stateModel, invitationModel, userModel };
 };
 
-const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", update = [] }, user = {}, updateKey = null, waitlist = {}) => {
+const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", update }, user = {}, updateKey = null, waitlist = {}) => {
   const { _id, userModel } = user;  
   const req = { 
         headers: {},
         ciphers: {
-            obscure: jest.fn(x => Promise.resolve(x)),
+            obscure: jest.fn((x,y) => Promise.resolve(x)),
             reveal: jest.fn(({ data }) => Promise.resolve(data)),
             credentials: jest.fn((x,y = "") => Promise.resolve(x+y)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),

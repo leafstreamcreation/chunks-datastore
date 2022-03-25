@@ -19,14 +19,15 @@ describe("Spec for update route", () => {
 
         const loginRes = MockRes();
         const mockLoginPayload = {};
-        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, { "2": { res: loginRes, payload: mockLoginPayload, expireId: 1 } });
+        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, { "2": { login: { res: loginRes, payload: mockLoginPayload, expireId: 1 }, expireId: 1 } });
         const res = MockRes();
         
         const user2Data = [];
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         expect(instance.userModel.users["2"].data).toEqual(user2Data);
         expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: mockLoginPayload, expireId: 1 });
-
+        const user2Init = { ...instance.userModel.users["2"] };
+        user2Init.push = req.user.push;
 
         await updateHandler(req, res, null, instance);
         expect(instance.userModel.users["2"].updateKey).toBe(2);
@@ -36,8 +37,8 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        expect(req.ciphers.reveal).not.toHaveBeenCalled();
-        expect(req.ciphers.obscure).toHaveBeenCalledWith(instance.userModel.users["2"]);
+        expect(req.ciphers.reveal).toHaveBeenCalledWith(user2Init);
+        expect(req.ciphers.obscure).toHaveBeenCalledWith([{ _id: 1, name: "squashing", history: [{}], group: 0 }], req.user);
         expect(req.user.push).toHaveBeenCalledWith([], update);
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
@@ -65,6 +66,7 @@ describe("Spec for update route", () => {
         expect("2" in req.app.locals.waitingUsers).toBe(true);
         expect("expireId" in req.app.locals.waitingUsers["2"]).toBe(true);
         expect("login" in req.app.locals.waitingUsers["2"]).toBe(false);
+        clearTimeout(req.app.locals.waitingUsers["2"].expireId);
 
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         
@@ -93,7 +95,7 @@ describe("Spec for update route", () => {
         
         await updateHandler(req, res, null, instance);
         
-        const updateResult = { tryLater: true };
+        const updateResult = { defer: true };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
@@ -121,7 +123,7 @@ describe("Spec for update route", () => {
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         
         const updateResult = { selfDestruct: true };
-        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.status).toHaveBeenCalledWith(403);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
         expect(req.ciphers.reveal).not.toHaveBeenCalled();
