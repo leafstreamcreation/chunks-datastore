@@ -1,4 +1,5 @@
 const { keyBy } = require("lodash");
+const mergeUpdate = require("../src/routes/middleware/mergeUpdate");
 
 class StateModel {
 
@@ -131,8 +132,9 @@ const MockDB = (seed = {}) => {
   return { stateModel, invitationModel, userModel };
 };
 
-const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123" }, waitlist = {}, userId = 1, updateKey = 1) => {
-    const req = { 
+const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", update = [] }, user = {}, updateKey = null, waitlist = {}) => {
+  const { _id, userModel } = user;  
+  const req = { 
         headers: {},
         ciphers: {
             obscure: jest.fn(x => Promise.resolve(x)),
@@ -142,11 +144,15 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123" }, w
         },
         app: { locals: { waitingUsers: waitlist }}
     };
-    if (name || password || ticket) req.body = {};
+    if (name || password || ticket || update) req.body = {};
     if (ticket) req.body.ticket = ticket;
     if (name) req.body.name = name;
     if (password) req.body.password = password;
-    if (userId !== null) req.headers.user = userId;
+    if (update) req.body.update = update;
+    if (_id && userModel) { 
+      req.user = userModel.users[`${_id}`];
+      req.user.push = jest.fn((x, y) => mergeUpdate(x, y));
+    }
     if (updateKey !== null) req.headers.update = updateKey;
     return req;
 };

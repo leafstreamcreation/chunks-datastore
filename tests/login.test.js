@@ -67,7 +67,7 @@ describe("Spec for login route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({ name, password }, { "2": true });
+        const req = MockReq({ name, password }, {}, null, { "2": true });
         const res = MockRes();
         await login(req, res, null, instance);
         expect(req.app.locals.waitingUsers).toEqual({ "2": { res, payload: { _id: 2, activities: [], updateKey: 1 }}})

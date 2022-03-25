@@ -5,8 +5,8 @@ module.exports = (req, res, next) => {
     return Promise.resolve(json);
   };
 
-  const reveal = async (encryptedData) => {
-    return Promise.resolve(encryptedData);
+  const reveal = async (user) => {
+    return Promise.resolve(user);
   };
 
   const credentials = async (name, password = "") => {

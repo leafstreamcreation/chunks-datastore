@@ -86,8 +86,8 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
   
     const updateHandler = async (req, res, next, { userModel = User }) => {
       //Update:
-      //user id, update key, update in
-      //if no user id && update key match -> re login
+      // update key, update in
+      // if no user id && update key match -> re login
       // generate next update key and save
       // Decrypt user data
       // JSON.parse decrypted file
