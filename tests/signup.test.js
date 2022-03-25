@@ -33,6 +33,7 @@ describe("Spec for signup route", () => {
         expect(instance.invitationModel.invitations.length).toBe(1);
 
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
+        expect(req.ciphers.obscure).toHaveBeenCalledWith({ activities: [], credentials: name + password, updateKey: 1 });
     });
 
     test("signup with invalid credentials returns errors", async () => {

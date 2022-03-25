@@ -150,7 +150,7 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", upd
     if (password) req.body.password = password;
     if (update) req.body.update = update;
     if (_id && userModel) { 
-      req.user = userModel.users[`${_id}`];
+      req.user = { ...userModel.users[`${_id}`] };
       req.user.push = jest.fn((x, y) => mergeUpdate(x, y));
     }
     if (updateKey !== null) req.headers.update = updateKey;

@@ -55,7 +55,6 @@ describe("Spec for login route", () => {
         await login(badPass, badPassRes, null, instance);
         expect(badPassRes.status).toHaveBeenCalledWith(403);
         expect(badPassRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDCREDENTIALS);
-
     });
 
     test("login waits for updates to complete", async () => {
@@ -67,12 +66,21 @@ describe("Spec for login route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({ name, password }, {}, null, { "2": true });
+        const req = MockReq({ name, password }, {}, null, { "2": {} });
         const res = MockRes();
-        await login(req, res, null, instance);
-        expect(req.app.locals.waitingUsers).toEqual({ "2": { res, payload: { _id: 2, activities: [], updateKey: 1 }}})
-        expect(res.status).not.toHaveBeenCalled();
-        expect(res.json).not.toHaveBeenCalled();
 
+        expect("login" in req.app.locals.waitingUsers["2"]).toBe(false);
+
+        await login(req, res, null, instance);
+
+        expect("login" in req.app.locals.waitingUsers["2"]).toBe(true);
+        expect(req.app.locals.waitingUsers["2"].login.res).toEqual(res);
+        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ _id: 2, activities: [], updateKey: 1 });
+        expect("expireId" in req.app.locals.waitingUsers["2"].login).toBe(true);
+
+        clearInterval(req.app.locals.waitingUsers["2"].login.expireId);
+        
+        expect(res.json).not.toHaveBeenCalled();
+        expect(res.status).not.toHaveBeenCalled();
     });
 });

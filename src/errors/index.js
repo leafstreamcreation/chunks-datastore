@@ -7,6 +7,7 @@ module.exports = {
     INVALIDCREDENTIALS: { msg: "invalid credentials" },
     INVALIDTICKET: { msg: "invalid ticket" },
     TICKETEXISTS: { msg: "ticket already exists" },
+    EXPIREDLOGIN: { msg: "login request expired" },
   },
   handleErrors: (app) => {
     app.use((req, res, next) => {

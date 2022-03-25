@@ -30,14 +30,29 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
     const passCompare = await req.ciphers.compare(credentials, user.credentials).catch((error) => res.status(500).json(ERRORMSG.CTD));
     if (!passCompare) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
-    if (req.app.locals.waitingUsers[user._id]) req.app.locals.waitingUsers[user._id] = {
-      res, 
-      payload: {
-        _id: user._id, 
-        activities: await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD)), 
-        updateKey: user.updateKey
+    const userUpdating = req.app.locals.waitingUsers[user._id];
+    if (userUpdating) {
+      //handle prior login attempt
+      if ("login" in userUpdating) {
+        const { res:oldRes, expireId:expire } = userUpdating.login;
+        oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
+        clearTimeout(expire);
       }
-    };
+      const activities = await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD));
+      const expireId = setTimeout((req, res, id) => {
+        res.status(403).json(ERRORMSG.EXPIREDLOGIN);
+        delete req.app.locals.waitingUsers[id].login;
+      }, 1000 * 10, req, res, user._id);
+      req.app.locals.waitingUsers[user._id].login = {
+        res, 
+        payload: {
+          _id: user._id, 
+          activities, 
+          updateKey: user.updateKey
+        },
+        expireId
+      };
+    }
     else {
       const activities = await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD));
       return loginOk(res, { _id: user._id, activities, updateKey: user.updateKey });
@@ -59,6 +74,7 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json(ERRORMSG.CTD));
     const existingCredentials = await userModel.findOne({ credentials }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
     if (existingCredentials) return res.status(403).json({ ...ERRORMSG.INVALIDCREDENTIALS, ticketRefund:ticket });
+    const data = await req.ciphers.obscure({ activities: [], credentials, updateKey: 1 });
     const newUser = await userModel.create({ name, credentials }).catch((error) => res.status(500).json(ERRORMSG.CTD));
     invitationModel.findOneAndDelete({ codeHash }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
     return res.status(200).json({ _id: newUser._id, activities: [], updateKey: newUser.updateKey });
