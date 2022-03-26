@@ -14,7 +14,7 @@ describe("Spec for update route", () => {
         const instance =  MockDB({ users });
 
         const update = [
-            { op: 1, val: { _id: 1, name: "squashing", history: [{}], group: 0 }}
+            { op: 3, val: { id: 1, name: "squashing", history: [{}], group: 0 }}
         ];
 
         const loginRes = MockRes();
@@ -38,7 +38,7 @@ describe("Spec for update route", () => {
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
         expect(req.ciphers.reveal).toHaveBeenCalledWith(user2Init);
-        expect(req.ciphers.obscure).toHaveBeenCalledWith([{ _id: 1, name: "squashing", history: [{}], group: 0 }], req.user);
+        expect(req.ciphers.obscure).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], req.user);
         expect(req.user.push).toHaveBeenCalledWith([], update);
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
@@ -115,7 +115,7 @@ describe("Spec for update route", () => {
         const instance =  MockDB({ users });
 
         const update = [
-            { op: 1, val: { _id: 1, name: "squashing", history: [{}], group: 0 }}
+            { op: 3, val: { _id: 1, name: "squashing", history: [{}], group: 0 }}
         ];
 
         const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, {});

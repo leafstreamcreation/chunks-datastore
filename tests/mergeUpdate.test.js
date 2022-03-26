@@ -1,85 +1,73 @@
 const mergeUpdate = require("../src/routes/middleware/mergeUpdate");
 
-const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
-const { loginHandler: login } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
 
 describe("Spec for parsing updates from clients", () => {
   
-    test("create", async () => {
-        const password = "foo";
-        const name = "user2";
-        const users = [
-            { name: "user1", password },
-            { name, password }
+    test("create", () => {
+        const emptyData = [];
+        const notEmptyData = [ { id: 1 } ];
+        const command = [
+            { op: 3, val: { id: 3 } },
+            { op: 3, val: { id: 2 } }
         ];
-        const instance =  MockDB({ users });
-        const req = MockReq({ name, password });
-        const res = MockRes();
-        
-        const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
-        expect(instance.userModel.users["2"]).toEqual(user2);
-    });
-  
-    test("update", async () => {
-        const password = "foo";
-        const name = "user2";
-        const users = [
-            { name: "user1", password },
-            { name, password }
-        ];
-        const instance =  MockDB({ users });
-        const req = MockReq({ name, password });
-        const res = MockRes();
-        
-        const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
-        expect(instance.userModel.users["2"]).toEqual(user2);
-    });
-  
-    test("delete", async () => {
-        const password = "foo";
-        const name = "user2";
-        const users = [
-            { name: "user1", password },
-            { name, password }
-        ];
-        const instance =  MockDB({ users });
-        const req = MockReq({ name, password });
-        const res = MockRes();
-        
-        const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
-        expect(instance.userModel.users["2"]).toEqual(user2);
-    });
-  
-    test("combinations", async () => {
-        const password = "foo";
-        const name = "user2";
-        const users = [
-            { name: "user1", password },
-            { name, password }
-        ];
-        const instance =  MockDB({ users });
-        const req = MockReq({ name, password });
-        const res = MockRes();
-        
-        const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
-        expect(instance.userModel.users["2"]).toEqual(user2);
-    });
-  
-    test("errors", async () => {
-        const password = "foo";
-        const name = "user2";
-        const users = [
-            { name: "user1", password },
-            { name, password }
-        ];
-        const instance =  MockDB({ users });
-        const req = MockReq({ name, password });
-        const res = MockRes();
-        
-        const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
-        expect(instance.userModel.users["2"]).toEqual(user2);
-    });
 
+        const createEmpty = mergeUpdate(emptyData, command);
+        expect(createEmpty).toEqual([
+            { id: 2 },
+            { id: 3 }
+        ]);
+        const createNotEmpty = mergeUpdate(notEmptyData, command);
+        expect(createNotEmpty).toEqual([
+            { id: 1 },
+            { id: 2 },
+            { id: 3 }
+        ]);
+    });
+  
+    test("delete", () => {
+        const data = [
+            { id: 1 },
+            { id: 2 },
+            { id: 3 },
+        ];
+        const command = [
+            { op: 1, id: 3 },
+            { op: 1, id: 1 }
+        ];
 
+        const deletedData = mergeUpdate(data, command);
+        expect(deletedData).toEqual([
+            { id: 2 },
+        ]);
+    });
+  
+    test("update", () => {
+        const data = [
+            { id: 1, name: "sleep", history: [{}], group: 0 },
+            { id: 2, name: "eat", history: [{}], group: 0 },
+            { id: 3, name: "fuck", history: [{ startDate: 6 }], group: 0 },
+        ];
+        const command = [
+            { op: 2, id: 3, val: { name: "fuuuuck", history: [1,2,3,4,5] } },
+            { op: 2, id: 1, val: { name: "snooze" } },
+            { op: 2, id: 2, val: { history: [1,2,3,4,5] } }
+        ];
+
+        const updatedData = mergeUpdate(data, command);
+        expect(updatedData).toEqual([
+            { id: 1, name: "snooze", history: [{}], group: 0 },
+            { id: 2, name: "eat", history: [
+                { startDate: 1, endDate: 2 },
+                { startDate: 3, endDate: 4 },
+                { startDate: 5 }
+            ], group: 0 },
+            { id: 3, name: "fuuuuck", history: [
+                { startDate: 6, endDate: 1 },
+                { startDate: 2, endDate: 3 },
+                { startDate: 4, endDate: 5 },
+                {}
+            ], group: 0 }
+        ]);
+    });
 });
