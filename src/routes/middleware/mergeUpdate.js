@@ -30,21 +30,4 @@ module.exports = (activities, update) => {
         }
     });
     return Object.values(newActivities);
-}
-
-// {
-//     op: [ 3: "create" || 2: "update" || 1: "delete" ]
-//     id?: delete/update activity
-//     val?: create/update activity
-//          create: { id, name, history, group }
-//          update: { name, history } history just an array of times; can update name and history simultaneously
-// }
-
-
-//  no intermediate steps:
-//  intermediate instructions are boiled out of the update in the sw
-//  therefore the update is the minimum set of steps for the db to catch up to client
-//      all updates are the latest for their corresponding ids
-//      all creates don't exist in the db (due to new ids)
-//      all deletes target ids that were not created or updated in the update
-//  therefore the instructions do not interfere with each other and can be run in any order
+};

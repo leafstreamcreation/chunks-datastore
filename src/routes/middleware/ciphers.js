@@ -1,31 +1,34 @@
 const User = require("../../models/User.model");
 
+const bcrypt = require("bcryptjs");
+const saltRounds = 13;
+
+const AES = require("crypto-js/aes");
+
+
 module.exports = (req, res, next) => {
   const credentials = async (name, password = "") => {
-    //wrap bcrypt
-    return Promise.resolve(name + password);
+    const salt = await bcrypt.genSalt(saltRounds);
+    const creds = name + password;
+    return bcrypt.hash(creds, salt);
+  };
+  
+  const compare = (pass, hash) => {
+    return bcrypt.compare(pass, hash);
+  };
+  
+  const obscure = (activities, user) => {
+    const key = `${user.credentials}SHOOBEEDOOBOP${user.updateKey};`
+    const jsonString = JSON.stringify(activities);
+    const data = AES.encrypt(jsonString, key);
+    return Promise.resolve(data);
   };
 
-  const compare = async (hash1, hash2) => {
-    //wrap bcrypt
-    return Promise.resolve(true);
-  };
-
-  const obscure = async (activities, user) => {
-    //activities (json) in user
-    //unhash credentials
-    //stringify activities
-    //AES encryption with credentials/updatekey string
-    //respond with data
-    return Promise.resolve(user);
-  };
-
-  const reveal = async (user) => {
-    //data (string) in user
-    //unhash credentials
-    //AES decryption with credentials/updatekey string
-    //respond with json
-    return Promise.resolve(user);
+  const reveal = (user) => {
+    const key = `${user.credentials}SHOOBEEDOOBOP${user.updateKey};`
+    const json = AES.decrypt(user.data, key);
+    const activities = JSON.parse(json);
+    return Promise.resolve(activities);
   };
 
   req.ciphers = { obscure, reveal, credentials, compare };

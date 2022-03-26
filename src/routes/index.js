@@ -27,8 +27,6 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
   const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json(ERRORMSG.CTD));
   const user = await userModel.findOne({ credentials }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
   if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
-  const passCompare = await req.ciphers.compare(credentials, user.credentials).catch((error) => res.status(500).json(ERRORMSG.CTD));
-  if (!passCompare) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
   const userUpdating = req.app.locals.waitingUsers[user._id];
   if (userUpdating) {
     //handle prior login attempt
@@ -85,10 +83,8 @@ const inviteHandler = async (req, res, next, { stateModel = State, invitationMod
   if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
   if (!ticket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
 
-  const adminHashCreate = req.ciphers.credentials(password).catch((error) => res.status(500).json(ERRORMSG.CTD));
-  const stateFetch = stateModel.findOne().exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
-  const [ adminHash, state ] = await Promise.all([ adminHashCreate, stateFetch ]);
-  const match = await req.ciphers.compare(adminHash, state.adminHash).catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const state = await stateModel.findOne().exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const match = await req.ciphers.compare(password, state.adminHash).catch((error) => res.status(500).json(ERRORMSG.CTD));
   if (!match) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
 
   const codeHash = await req.ciphers.credentials(ticket)

@@ -25,7 +25,6 @@ describe("Spec for login route", () => {
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.compare).toHaveBeenCalled();
         expect(req.ciphers.reveal).toHaveBeenCalled();
     });
 

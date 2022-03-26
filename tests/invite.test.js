@@ -35,7 +35,6 @@ describe("Spec for invite route", () => {
         const deviation = Math.abs(1 - (expire.getTime() / endTime));
         expect(deviation).toBeCloseTo(0, 0);
 
-        expect(req.ciphers.credentials).toHaveBeenCalledWith(password);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(ticket);
     });
 

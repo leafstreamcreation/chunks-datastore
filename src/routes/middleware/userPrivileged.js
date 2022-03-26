@@ -9,9 +9,6 @@ module.exports = async (req, res, next) => {
 
   const user = await User.findById(req.headers.user).exec();
   if (!user) return res.status(403).json({ errorMessage: "User does not exist" });
-  const activities = await req.ciphers.reveal(user);
-  delete user.data;
-  user.activities = activities;
   req.user = user;
   req.user.push = (activities, update) => mergeUpdate(activities, update);
   next();
