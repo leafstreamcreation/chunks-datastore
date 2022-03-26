@@ -79,7 +79,7 @@ describe("Spec for update route", () => {
         expect(req.user.push).not.toHaveBeenCalled();
     });
 
-    test("update (signed in) without body while awaiting update returns cache update", async () => {
+    test("update (signed in) without body while db listening returns cache update", async () => {
         const password = "foo";
         const name = "user2";
         const users = [
@@ -95,6 +95,37 @@ describe("Spec for update route", () => {
         
         await updateHandler(req, res, null, instance);
         
+        expect("2" in req.app.locals.waitingUsers).toBe(true);
+        const updateResult = { defer: true };
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith(updateResult);
+
+        expect(req.ciphers.reveal).not.toHaveBeenCalled();
+        expect(req.ciphers.obscure).not.toHaveBeenCalled();
+        expect(req.user.push).not.toHaveBeenCalled();
+    });
+
+    test("update (signed in) with body while db not listening returns cache update", async () => {
+        const password = "foo";
+        const name = "user2";
+        const users = [
+            { name: "user1", password },
+            { name, password }
+        ];
+        const instance =  MockDB({ users });
+
+        const update = [
+            { op: 1, val: { _id: 1, name: "squashing", history: [{}], group: 0 }}
+        ];
+
+        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, {});
+        const res = MockRes();
+        
+        expect("2" in req.app.locals.waitingUsers).toBe(false);
+        
+        await updateHandler(req, res, null, instance);
+        
+        expect("2" in req.app.locals.waitingUsers).toBe(false);
         const updateResult = { defer: true };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);

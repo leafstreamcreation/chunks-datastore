@@ -99,33 +99,37 @@ const inviteHandler = async (req, res, next, { stateModel = State, invitationMod
 };
 router.post("/invite", inviteHandler);
 
-  const updateHandler = async (req, res, next, { userModel = User }) => {
-    if (req.headers.update !== req.user.updateKey) return res.status(403).json({ selfDestruct: true });
-    const update = req.body?.update;
-    const id = `${req.user._id}`;
-    const userIsWaiting = id in req.app.locals.waitingUsers;
-    if (!update) {
-      if (userIsWaiting) return res.status(200).json({ defer: true });
-      req.app.locals.waitingUsers[id] = {};
-      req.app.locals.waitingUsers[id].expireId = setTimeout((r, i) => {
-        delete r.app.locals.waitingUsers[i];
-      }, 1000 * 60 * 60 * 2.5, req, id);
-      return res.status(200).json({ listening: true });
-    }
-    if (userIsWaiting) {
-      const { res: loginRes, payload } = req.app.locals.waitingUsers[id].login;
-      loginOk(loginRes, payload);
-      clearTimeout(req.app.locals.waitingUsers[id].expireId);
-      delete req.app.locals.waitingUsers[id];
-    }
-    const activities = await req.ciphers.reveal(req.user).catch((error) => res.status(500).json(ERRORMSG.CTD));
-    const newActivities = req.user.push(activities, update);
-    const data = await req.ciphers.obscure(newActivities, req.user).catch((error) => res.status(500).json(ERRORMSG.CTD));
-    const updateKey = req.user.updateKey + 1;
-    const updated = await userModel.findByIdAndUpdate(req.user._id, { data, updateKey }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
-    if (!updated) return res.status(500).json(ERRORMSG.CTD);
-    return res.status(200).json({ updateKey: updated.updateKey });
-  };
-  router.post("/update", userPrivileged, updateHandler);
-  
-  module.exports = { router, loginHandler, signupHandler, inviteHandler, updateHandler };
+const updateHandler = async (req, res, next, { userModel = User }) => {
+  if (req.headers.update !== req.user.updateKey) return res.status(403).json({ selfDestruct: true });
+  const update = req.body?.update;
+  const id = `${req.user._id}`;
+  const listeningForUpdates = id in req.app.locals.waitingUsers;
+  if (!update) {
+    if (listeningForUpdates) return res.status(200).json({ defer: true });
+    req.app.locals.waitingUsers[id] = {};
+    req.app.locals.waitingUsers[id].expireId = setTimeout((r, i) => {
+      delete r.app.locals.waitingUsers[i];
+    }, 1000 * 60 * 60 * 2.5, req, id);
+    return res.status(200).json({ listening: true });
+  }
+  if (!listeningForUpdates) return res.status(200).json({ defer: true });
+  const activities = await req.ciphers.reveal(req.user).catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const newActivities = req.user.push(activities, update);
+  const data = await req.ciphers.obscure(newActivities, req.user).catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const updateKey = req.user.updateKey + 1;
+  const updated = await userModel.findByIdAndUpdate(req.user._id, { data, updateKey }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+  if (!updated) return res.status(500).json(ERRORMSG.CTD);
+  const userWaiting = req.app.locals.waitingUsers[id].login;
+  if (userWaiting) {
+    const { res: loginRes, payload } = req.app.locals.waitingUsers[id].login;
+    loginOk(loginRes, payload);
+    clearTimeout(req.app.locals.waitingUsers[id].login.expireId);
+    delete req.app.locals.waitingUsers[id].login;
+  }
+  clearTimeout(req.app.locals.waitingUsers[id].expireId);
+  delete req.app.locals.waitingUsers[id];
+  return res.status(200).json({ updateKey: updated.updateKey });
+};
+router.post("/update", userPrivileged, updateHandler);
+
+module.exports = { router, loginHandler, signupHandler, inviteHandler, updateHandler };
