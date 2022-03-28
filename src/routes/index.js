@@ -24,10 +24,12 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
   if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
   if (!name) return res.status(400).json(ERRORMSG.MISSINGUSERNAME);
   
-  const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json(ERRORMSG.CTD));
-  const user = await userModel.findOne({ credentials }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const user = await userModel.findOne({ name }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
-  const userUpdating = req.app.locals.waitingUsers[user._id];
+  const match = await req.ciphers.compare(name + password, user.credentials).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  if (!match) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
+
+  const userUpdating = req.app.locals.waitingUsers?.[user._id];
   if (userUpdating) {
     //handle prior login attempt
     if ("login" in userUpdating) {
@@ -35,7 +37,7 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
       oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
       clearTimeout(expire);
     }
-    const activities = await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD));
+    const activities = req.ciphers.reveal(user);
     const expireId = setTimeout((req, res, id) => {
       res.status(403).json(ERRORMSG.EXPIREDLOGIN);
       delete req.app.locals.waitingUsers[id].login;
@@ -51,11 +53,13 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     };
   }
   else {
-    const activities = await req.ciphers.reveal(user).catch((error) => res.status(500).json(ERRORMSG.CTD));
+    const activities = req.ciphers.reveal(user);
     return loginOk(res, { _id: user._id, activities, updateKey: user.updateKey });
   }
 };
-router.post("/login", loginHandler);
+router.post("/login", (req, res, next) => {
+  loginHandler(req, res, next, { userModel: User });
+});
   
 
 const signupHandler = async (req, res, next, { userModel = User, invitationModel = Invitation }) => {
@@ -63,40 +67,57 @@ const signupHandler = async (req, res, next, { userModel = User, invitationModel
   if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
   if (!name) return res.status(400).json(ERRORMSG.MISSINGUSERNAME);
   if (!ticket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
-  
-  const codeHash = await req.ciphers.credentials(ticket).catch((error) => res.status(500).json(ERRORMSG.CTD));
-  const invitation = await invitationModel.findOne({ codeHash }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+  let invitation = null;
+  const pending = await invitationModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  for ( const i of pending) {
+    const match = await req.ciphers.compare(ticket, i.codeHash).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+    if (match) {
+      invitation = i;
+      break;
+    }
+  }
   if (!invitation) return res.status(403).json(ERRORMSG.INVALIDTICKET);
-
-  const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json(ERRORMSG.CTD));
-  const existingCredentials = await userModel.findOne({ credentials }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
-  if (existingCredentials) return res.status(403).json({ ...ERRORMSG.INVALIDCREDENTIALS, ticketRefund:ticket });
-  const data = await req.ciphers.obscure({ activities: [], credentials, updateKey: 1 });
-  const newUser = await userModel.create({ name, credentials }).catch((error) => res.status(500).json(ERRORMSG.CTD));
-  invitationModel.findOneAndDelete({ codeHash }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const existingCredentials = await userModel.findOne({ name }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  if (existingCredentials !== null) return res.status(403).json({ ...ERRORMSG.INVALIDCREDENTIALS, ticketRefund:ticket });
+  const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const data = req.ciphers.obscure([], { name, updateKey: 1 });
+  const newUser = await userModel.create({ name, credentials, data, updateKey: 1 }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   return res.status(200).json({ _id: newUser._id, activities: [], updateKey: newUser.updateKey });
 };
-router.post("/signup", signupHandler);
+router.post("/signup", (req, res, next) => {
+  signupHandler(req, res, next, { userModel: User, invitationModel: Invitation });
+});
 
 const inviteHandler = async (req, res, next, { stateModel = State, invitationModel = Invitation }) => {
   const { password, ticket } = req.body;
   if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
   if (!ticket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
 
-  const state = await stateModel.findOne().exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
-  const match = await req.ciphers.compare(password, state.adminHash).catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const state = await stateModel.findOne().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const match = await req.ciphers.compare(password, state.adminHash).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!match) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
 
-  const codeHash = await req.ciphers.credentials(ticket)
-  const alreadyExists = await invitationModel.findOne({ codeHash }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
-  if (alreadyExists) return res.status(403).json(ERRORMSG.TICKETEXISTS);
-  invitationModel.create({ codeHash, expires: new Date(Date.now() + 1000 * 60 * 30) }).catch((error) => res.status(500).json(ERRORMSG.CTD));
+  let invitation = null;
+  const pending = await invitationModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  for ( const i of pending) {
+    const match = await req.ciphers.compare(ticket, i.codeHash).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+    if (match) {
+      invitation = i;
+      break;
+    }
+  }
+  if (invitation) return res.status(403).json(ERRORMSG.TICKETEXISTS);
+  const codeHash = await req.ciphers.credentials(ticket).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  invitationModel.create({ codeHash, expires: new Date(Date.now() + 1000 * 60 * 30) }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   return res.status(200).json({ ticket });
 };
-router.post("/invite", inviteHandler);
+router.post("/invite", (req, res, next) => {
+  inviteHandler(req, res, next, { stateModel: State, invitationModel: Invitation });
+});
 
 const updateHandler = async (req, res, next, { userModel = User }) => {
-  if (req.headers.update !== req.user.updateKey) return res.status(403).json({ selfDestruct: true });
+  if (req.headers.update !== `${req.user.updateKey}`) return res.status(403).json({ selfDestruct: true });
   const update = req.body?.update;
   const id = `${req.user._id}`;
   const listeningForUpdates = id in req.app.locals.waitingUsers;
@@ -109,23 +130,25 @@ const updateHandler = async (req, res, next, { userModel = User }) => {
     return res.status(200).json({ listening: true });
   }
   if (!listeningForUpdates) return res.status(200).json({ defer: true });
-  const activities = await req.ciphers.reveal(req.user).catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const activities = req.ciphers.reveal(req.user);
   const newActivities = req.user.push(activities, update);
-  const data = await req.ciphers.obscure(newActivities, req.user).catch((error) => res.status(500).json(ERRORMSG.CTD));
   const updateKey = req.user.updateKey + 1;
-  const updated = await userModel.findByIdAndUpdate(req.user._id, { data, updateKey }).exec().catch((error) => res.status(500).json(ERRORMSG.CTD));
+  const data = req.ciphers.obscure(newActivities, { name: req.user.name, updateKey });
+  const updated = await userModel.findByIdAndUpdate(req.user._id, { data, updateKey }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!updated) return res.status(500).json(ERRORMSG.CTD);
   const userWaiting = req.app.locals.waitingUsers[id].login;
   if (userWaiting) {
-    const { res: loginRes, payload } = req.app.locals.waitingUsers[id].login;
-    loginOk(loginRes, payload);
+    const { res: loginRes } = req.app.locals.waitingUsers[id].login;
+    loginOk(loginRes, { _id: id, activities: newActivities, updateKey });
     clearTimeout(req.app.locals.waitingUsers[id].login.expireId);
     delete req.app.locals.waitingUsers[id].login;
   }
   clearTimeout(req.app.locals.waitingUsers[id].expireId);
   delete req.app.locals.waitingUsers[id];
-  return res.status(200).json({ updateKey: updated.updateKey });
+  return res.status(200).json({ updateKey });
 };
-router.post("/update", userPrivileged, updateHandler);
+router.post("/update", userPrivileged, (req, res, next) => {
+  updateHandler(req, res, next, { userModel: User });
+});
 
 module.exports = { router, loginHandler, signupHandler, inviteHandler, updateHandler };

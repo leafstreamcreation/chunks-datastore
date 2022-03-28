@@ -18,30 +18,31 @@ describe("Spec for update route", () => {
         ];
 
         const loginRes = MockRes();
-        const mockLoginPayload = {};
-        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, { "2": { login: { res: loginRes, payload: mockLoginPayload, expireId: 1 }, expireId: 1 } });
+        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
         const res = MockRes();
         
         const user2Data = [];
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         expect(instance.userModel.users["2"].data).toEqual(user2Data);
-        expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: mockLoginPayload, expireId: 1 });
+        expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: {}, expireId: 1 });
         const user2Init = { ...instance.userModel.users["2"] };
         user2Init.push = req.user.push;
-
+        
         await updateHandler(req, res, null, instance);
-        expect(instance.userModel.users["2"].updateKey).toBe(2);
-        expect(instance.userModel.users["2"].data).toEqual([update[0].val]);
-
+        
         const updateResult = { updateKey: 2 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
-
+        
         expect(req.ciphers.reveal).toHaveBeenCalledWith(user2Init);
-        expect(req.ciphers.obscure).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], req.user);
+        expect(req.ciphers.obscure).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], { name: instance.userModel.users["2"].name, updateKey: instance.userModel.users["2"].updateKey });
         expect(req.user.push).toHaveBeenCalledWith([], update);
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
+        expect(instance.userModel.users["2"].updateKey).toBe(2);
+        expect(instance.userModel.users["2"].data).toEqual([update[0].val]);
+        
+        const mockLoginPayload = { _id: "2", activities: [{ id: 1, name: "squashing", history: [{}], group: 0 }], updateKey: 2 };
         expect(loginRes.status).toHaveBeenCalledWith(200);
         expect(loginRes.json).toHaveBeenCalledWith(mockLoginPayload);
 

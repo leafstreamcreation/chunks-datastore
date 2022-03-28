@@ -24,8 +24,8 @@ describe("Spec for login route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
-        expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.reveal).toHaveBeenCalled();
+        expect(req.ciphers.compare).toHaveBeenCalledWith(name + password, instance.userModel.users["2"].credentials);
+        expect(req.ciphers.reveal).toHaveBeenCalledWith(instance.userModel.users["2"]);
     });
 
     test("login with invalid credentials returns errors", async () => {

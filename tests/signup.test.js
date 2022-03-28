@@ -32,8 +32,9 @@ describe("Spec for signup route", () => {
         expect(instance.invitationModel.invitations[0]).toEqual({ _id: 1, codeHash: "WXYZ", expires });
         expect(instance.invitationModel.invitations.length).toBe(1);
 
+        expect(req.ciphers.compare).toHaveBeenCalled();
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.obscure).toHaveBeenCalledWith({ activities: [], credentials: name + password, updateKey: 1 });
+        expect(req.ciphers.obscure).toHaveBeenCalledWith([], { name, updateKey: 1 });
     });
 
     test("signup with invalid credentials returns errors", async () => {

@@ -24,11 +24,12 @@ const projectName = "chunks-datastore";
 //   string[0].toUpperCase() + string.slice(1).toLowerCase();
 
 app.locals.title = `${projectName}`;
+app.locals.waitingUsers = {};
 
 // 👇 Start handling routes here
 
-const allRoutes = require("./routes");
-app.use("/", allRoutes);
+const { router:allRoutes } = require("./routes");
+app.use(allRoutes);
 
 // ❗ To handle errors. Routes that don't exist or errors that you handle in specific routes
 const { handleErrors } = require("./errors");

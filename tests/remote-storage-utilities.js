@@ -40,33 +40,21 @@ class InvitationModel {
         return Promise.resolve({ ...newInvitation });
   }
 
-  findOne({ codeHash }) {
+  find() {
       return {
         exec: () => {
-            for (let i = 0; i < this.invitations.length; i++) {
-                const invHash = this.invitations[i].codeHash;
-                if (invHash === codeHash) {
-                    const inv = this.invitations[i];
-                    return Promise.resolve({...inv});
-                }
-            }
-            return Promise.resolve(null);
+            return Promise.resolve([...this.invitations]);
         }
       };
   }
 
-  findOneAndDelete({ codeHash }) {
+  findByIdAndDelete(id) {
     return {
       exec: () => {
-        for (let i = 0; i < this.invitations.length; i++) {
-            const invHash = this.invitations[i].codeHash;
-            if (invHash === codeHash) {
-                const inv = this.invitations[i];
-                this.invitations.splice(i, 1);
-                return Promise.resolve({...inv});
-            }
-        }
-        return Promise.resolve(null);
+        const invObj = keyBy(this.invitations, "_id");
+        delete invObj[`${id}`]
+        this.invitations = Object.values(invObj);
+        return Promise.resolve(Object.values(invObj));
       }
     };
   }
@@ -87,20 +75,20 @@ class UserModel {
     this.users = keyBy(userArray, "_id");
   }
 
-  create({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123" }) {
-      const newUser = { _id: this.currentId, name, credentials, updateKey: 1, data: [] };
+  create({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123", data = [], updateKey = 1 }) {
+      const newUser = { _id: this.currentId, name, credentials, updateKey , data };
       this.users[`${this.currentId}`] = newUser;
       this.currentId += 1;
     return Promise.resolve({ ...newUser });
   }
 
-  findOne({ credentials }) {
+  findOne({ name }) {
     return {
       exec: () => {
         const users = Object.values(this.users);
         for (let i = 0; i < users.length; i++) {
-            const uCred = users[i].credentials;
-            if (uCred === credentials) {
+            const uName = users[i].name;
+            if (uName === name) {
                 const u = users[i];
                 return Promise.resolve({...u});
             }
@@ -138,8 +126,8 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", upd
   const req = { 
         headers: {},
         ciphers: {
-            obscure: jest.fn((x,y) => Promise.resolve(x)),
-            reveal: jest.fn(({ data }) => Promise.resolve(data)),
+            obscure: jest.fn((x,y) => x),
+            reveal: jest.fn(({ data }) => data),
             credentials: jest.fn((x,y = "") => Promise.resolve(x+y)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
         },
@@ -154,7 +142,7 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", upd
       req.user = { ...userModel.users[`${_id}`] };
       req.user.push = jest.fn((x, y) => mergeUpdate(x, y));
     }
-    if (updateKey !== null) req.headers.update = updateKey;
+    if (updateKey !== null) req.headers.update = `${updateKey}`;
     return req;
 };
 
