@@ -69,14 +69,14 @@ class UserModel {
     const userArray = [];
     users.forEach(({ name = "RaquelettaMoss", password = "secret123" }) => {
         const credentials = name + password;
-        userArray.push({ _id: this.currentId, name, credentials, updateKey: 1, data: [] });
+        userArray.push({ _id: this.currentId, name, token:name, credentials, updateKey: 1, data: [] });
         this.currentId += 1;
     });
     this.users = keyBy(userArray, "_id");
   }
 
   create({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123", data = [], updateKey = 1 }) {
-      const newUser = { _id: this.currentId, name, credentials, updateKey , data };
+      const newUser = { _id: this.currentId, name, token:name, credentials, updateKey , data };
       this.users[`${this.currentId}`] = newUser;
       this.currentId += 1;
     return Promise.resolve({ ...newUser });
@@ -126,8 +126,10 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", upd
   const req = { 
         headers: {},
         ciphers: {
-            obscure: jest.fn((x,y) => x),
-            reveal: jest.fn(({ data }) => data),
+            obscureActivities: jest.fn((x,y) => x),
+            revealActivities: jest.fn(({ data }) => data),
+            tokenGen: jest.fn(x => [x,x]),
+            revealToken: jest.fn(x => x.token),
             credentials: jest.fn((x,y = "") => Promise.resolve(x+y)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
         },

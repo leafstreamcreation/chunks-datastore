@@ -15,17 +15,18 @@ describe("Spec for login route", () => {
         const req = MockReq({ name, password });
         const res = MockRes();
         
-        const user2 = { _id: 2, name, credentials: name + password, data: [], updateKey: 1 };
+        const user2 = { _id: 2, name, token:name, credentials: name + password, data: [], updateKey: 1 };
         expect(instance.userModel.users["2"]).toEqual(user2);
         expect(Object.values(instance.userModel.users).length).toBe(2);
     
         await login(req, res, null, instance);
-        const loginResponse = { _id: 2, activities: [], updateKey: 1 };
+        const loginResponse = { token: name, activities: [], updateKey: 1 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
         expect(req.ciphers.compare).toHaveBeenCalledWith(name + password, instance.userModel.users["2"].credentials);
-        expect(req.ciphers.reveal).toHaveBeenCalledWith(instance.userModel.users["2"]);
+        expect(req.ciphers.revealToken).toHaveBeenCalledWith(instance.userModel.users["2"]);
+        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(instance.userModel.users["2"]);
     });
 
     test("login with invalid credentials returns errors", async () => {

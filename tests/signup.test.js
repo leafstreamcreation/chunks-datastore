@@ -23,18 +23,19 @@ describe("Spec for signup route", () => {
         expect(Object.values(instance.userModel.users).length).toBe(0);
     
         await signup(req, res, null, instance);
-        const signupResponse = { _id: 1, activities: [], updateKey: 1 };
+        const signupResponse = { token: name, activities: [], updateKey: 1 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(signupResponse);
 
-        const newUser = { _id: 1, name, credentials: name + password, data: [], updateKey: 1 };
+        const newUser = { _id: 1, name, token:name, credentials: name + password, data: [], updateKey: 1 };
         expect(instance.userModel.users["1"]).toEqual(newUser);
         expect(instance.invitationModel.invitations[0]).toEqual({ _id: 1, codeHash: "WXYZ", expires });
         expect(instance.invitationModel.invitations.length).toBe(1);
 
+        expect(req.ciphers.tokenGen).toHaveBeenCalledWith(newUser.name);
         expect(req.ciphers.compare).toHaveBeenCalled();
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.obscure).toHaveBeenCalledWith([], { name, updateKey: 1 });
+        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], { name, updateKey: 1 });
     });
 
     test("signup with invalid credentials returns errors", async () => {
