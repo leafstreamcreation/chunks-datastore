@@ -1,3 +1,4 @@
+require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { inviteHandler: invite } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");

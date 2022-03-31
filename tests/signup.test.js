@@ -1,3 +1,4 @@
+require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { signupHandler: signup } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
@@ -23,19 +24,20 @@ describe("Spec for signup route", () => {
         expect(Object.values(instance.userModel.users).length).toBe(0);
     
         await signup(req, res, null, instance);
-        const signupResponse = { token: name, activities: [], updateKey: 1 };
+        const signupResponse = { token: { name }, activities: [], updateKey: 1 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(signupResponse);
 
-        const newUser = { _id: 1, name, token:name, credentials: name + password, data: [], updateKey: 1 };
+        const newUser = { _id: 1, token:`{ "name": "${name}" }`, credentials: name + password, data: [], updateKey: 1 };
         expect(instance.userModel.users["1"]).toEqual(newUser);
         expect(instance.invitationModel.invitations[0]).toEqual({ _id: 1, codeHash: "WXYZ", expires });
         expect(instance.invitationModel.invitations.length).toBe(1);
 
-        expect(req.ciphers.tokenGen).toHaveBeenCalledWith(newUser.name);
+        expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name);
         expect(req.ciphers.compare).toHaveBeenCalled();
+        expect(req.ciphers.revealToken).toHaveBeenCalledTimes(0);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], { name, updateKey: 1 });
+        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1);
     });
 
     test("signup with invalid credentials returns errors", async () => {
@@ -50,7 +52,13 @@ describe("Spec for signup route", () => {
         const users = [ { name, password }];
         
         const instance =  MockDB({ invitations, users });
-
+        
+        const dbInvitations = [
+            { _id:1, codeHash: "WXYZ", expires  },
+            { _id:2, codeHash: ticket, expires }
+        ];
+        expect(instance.invitationModel.invitations).toEqual(dbInvitations);
+        
         const nohash = MockReq({ ticket: null, name, password });
         const nohashRes = MockRes();
         await signup(nohash, nohashRes, null, instance);
@@ -83,13 +91,9 @@ describe("Spec for signup route", () => {
         const badcredsRes = MockRes();
         await signup(badcreds, badcredsRes, null, instance);
         expect(badcredsRes.status).toHaveBeenCalledWith(403);
-        expect(badcredsRes.json).toHaveBeenCalledWith({ ...ERRORMSG.INVALIDCREDENTIALS, ticketRefund: ticket });
+        expect(badcredsRes.json).toHaveBeenCalledWith({ msg: "user already exists", ticketRefund: ticket });
 
 
-        const dbInvitations = [
-            { _id:1, codeHash: "WXYZ", expires  },
-            { _id:2, codeHash: ticket, expires }
-        ];
         expect(instance.invitationModel.invitations).toEqual(dbInvitations);
         expect(Object.values(instance.userModel.users).length).toBe(1);
     });

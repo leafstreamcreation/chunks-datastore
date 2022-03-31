@@ -1,3 +1,4 @@
+require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { loginHandler: login } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
@@ -15,18 +16,18 @@ describe("Spec for login route", () => {
         const req = MockReq({ name, password });
         const res = MockRes();
         
-        const user2 = { _id: 2, name, token:name, credentials: name + password, data: [], updateKey: 1 };
+        const user2 = { _id: 2, token:`{ "name": "${name}" }`, credentials: name + password, data: [], updateKey: 1 };
         expect(instance.userModel.users["2"]).toEqual(user2);
         expect(Object.values(instance.userModel.users).length).toBe(2);
     
         await login(req, res, null, instance);
-        const loginResponse = { token: name, activities: [], updateKey: 1 };
+        const loginResponse = { token: { name }, activities: [], updateKey: 1 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
         expect(req.ciphers.compare).toHaveBeenCalledWith(name + password, instance.userModel.users["2"].credentials);
-        expect(req.ciphers.revealToken).toHaveBeenCalledWith(instance.userModel.users["2"]);
-        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(instance.userModel.users["2"]);
+        expect(req.ciphers.revealToken).toHaveBeenCalledTimes(2);
+        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, instance.userModel.users["2"]);
     });
 
     test("login with invalid credentials returns errors", async () => {
@@ -75,7 +76,7 @@ describe("Spec for login route", () => {
 
         expect("login" in req.app.locals.waitingUsers["2"]).toBe(true);
         expect(req.app.locals.waitingUsers["2"].login.res).toEqual(res);
-        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ _id: 2, activities: [], updateKey: 1 });
+        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ token:{ name }, activities: [], updateKey: 1 });
         expect("expireId" in req.app.locals.waitingUsers["2"].login).toBe(true);
 
         clearInterval(req.app.locals.waitingUsers["2"].login.expireId);

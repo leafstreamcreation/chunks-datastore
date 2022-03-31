@@ -24,7 +24,16 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
   if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
   if (!name) return res.status(400).json(ERRORMSG.MISSINGUSERNAME);
   
-  const user = await userModel.findOne({ name }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const users = await userModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  let user;
+  const tokens = users.map((u) => req.ciphers.revealToken(u, name));
+  const [ userToken ] = tokens.filter((token, index) => {
+    if (token && JSON.parse(token).name === name) {
+      user = users[index];
+      return true;
+    }
+    return false;
+  });
   if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
   const match = await req.ciphers.compare(name + password, user.credentials).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!match) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
@@ -37,7 +46,7 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
       oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
       clearTimeout(expire);
     }
-    const activities = req.ciphers.revealActivities(user);
+    const activities = req.ciphers.revealActivities(name, user);
     const expireId = setTimeout((req, res, id) => {
       res.status(403).json(ERRORMSG.EXPIREDLOGIN);
       delete req.app.locals.waitingUsers[id].login;
@@ -45,7 +54,7 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     req.app.locals.waitingUsers[user._id].login = {
       res, 
       payload: {
-        _id: user._id, 
+        token: JSON.parse(userToken), 
         activities, 
         updateKey: user.updateKey
       },
@@ -53,8 +62,8 @@ const loginHandler = async (req, res, next, { userModel = User }) => {
     };
   }
   else {
-    const activities = req.ciphers.revealActivities(user);
-    return loginOk(res, { token: req.ciphers.revealToken(user), activities, updateKey: user.updateKey });
+    const activities = req.ciphers.revealActivities(name, user);
+    return loginOk(res, { token: JSON.parse(userToken), activities, updateKey: user.updateKey });
   }
 };
 router.post("/login", (req, res, next) => {
@@ -77,14 +86,14 @@ const signupHandler = async (req, res, next, { userModel = User, invitationModel
     }
   }
   if (!invitation) return res.status(403).json(ERRORMSG.INVALIDTICKET);
-  const existingCredentials = await userModel.findOne({ name }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  if (existingCredentials !== null) return res.status(403).json({ ...ERRORMSG.INVALIDCREDENTIALS, ticketRefund:ticket });
   const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   const [literal, token] = req.ciphers.tokenGen(name);
-  const data = req.ciphers.obscureActivities([], { name, updateKey: 1 });
-  const newUser = await userModel.create({ name, credentials, token, data, updateKey: 1 }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  return res.status(200).json({ token: literal, activities: [], updateKey: newUser.updateKey });
+  const data = req.ciphers.obscureActivities([], name, 1);
+  const newUser = await userModel.create({ name, credentials, token, data, updateKey: 1 }).then((u) => {
+    invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+    return u;
+  }).catch((error) => res.status(403).json({ ticketRefund:ticket, msg:error }));
+  return res.status(200).json({ token: JSON.parse(literal), activities: [], updateKey: newUser.updateKey });
 };
 router.post("/signup", (req, res, next) => {
   signupHandler(req, res, next, { userModel: User, invitationModel: Invitation });
@@ -131,16 +140,17 @@ const updateHandler = async (req, res, next, { userModel = User }) => {
     return res.status(200).json({ listening: true });
   }
   if (!listeningForUpdates) return res.status(200).json({ defer: true });
-  const activities = req.ciphers.revealActivities(req.user);
+  const name = JSON.parse(req.headers.token).name;
+  const activities = req.ciphers.revealActivities(name, req.user);
   const newActivities = req.user.push(activities, update);
   const updateKey = req.user.updateKey + 1;
-  const data = req.ciphers.obscureActivities(newActivities, { name: req.user.name, updateKey });
+  const data = req.ciphers.obscureActivities(newActivities, name, updateKey);
   const updated = await userModel.findByIdAndUpdate(req.user._id, { data, updateKey }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!updated) return res.status(500).json(ERRORMSG.CTD);
   const userWaiting = req.app.locals.waitingUsers[id].login;
   if (userWaiting) {
     const { res: loginRes } = req.app.locals.waitingUsers[id].login;
-    loginOk(loginRes, { token: req.ciphers.revealToken(req.user), activities: newActivities, updateKey });
+    loginOk(loginRes, { token: JSON.parse(req.headers.token), activities: newActivities, updateKey });
     clearTimeout(req.app.locals.waitingUsers[id].login.expireId);
     delete req.app.locals.waitingUsers[id].login;
   }

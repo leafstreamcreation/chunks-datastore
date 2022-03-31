@@ -69,31 +69,26 @@ class UserModel {
     const userArray = [];
     users.forEach(({ name = "RaquelettaMoss", password = "secret123" }) => {
         const credentials = name + password;
-        userArray.push({ _id: this.currentId, name, token:name, credentials, updateKey: 1, data: [] });
+        userArray.push({ _id: this.currentId, token:`{ "name": "${name}" }`, credentials, updateKey: 1, data: [] });
         this.currentId += 1;
     });
     this.users = keyBy(userArray, "_id");
   }
 
   create({ name = "RaquelettaMoss", credentials = "RaquelettaMosssecret123", data = [], updateKey = 1 }) {
-      const newUser = { _id: this.currentId, name, token:name, credentials, updateKey , data };
+      for (const { token } of Object.values(this.users)) {
+        if (JSON.parse(token).name === name) return Promise.reject("user already exists");
+      }
+      const newUser = { _id: this.currentId, token:`{ "name": "${name}" }`, credentials, updateKey , data };
       this.users[`${this.currentId}`] = newUser;
       this.currentId += 1;
     return Promise.resolve({ ...newUser });
   }
 
-  findOne({ name }) {
+  find() {
     return {
       exec: () => {
-        const users = Object.values(this.users);
-        for (let i = 0; i < users.length; i++) {
-            const uName = users[i].name;
-            if (uName === name) {
-                const u = users[i];
-                return Promise.resolve({...u});
-            }
-        }
-        return Promise.resolve(null);
+        return Promise.resolve((Object.values(this.users)));
       }
     };
   }
@@ -126,10 +121,10 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", upd
   const req = { 
         headers: {},
         ciphers: {
-            obscureActivities: jest.fn((x,y) => x),
-            revealActivities: jest.fn(({ data }) => data),
-            tokenGen: jest.fn(x => [x,x]),
-            revealToken: jest.fn(x => x.token),
+            obscureActivities: jest.fn((x,y,z) => x),
+            revealActivities: jest.fn((x, { data }) => data),
+            tokenGen: jest.fn(x => [`{ "name":"${x}" }`,x]),
+            revealToken: jest.fn((x,y) => x.token),
             credentials: jest.fn((x,y = "") => Promise.resolve(x+y)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
         },
@@ -143,6 +138,7 @@ const MockReq = ({ ticket = "ABCD", name = "friend", password = "secret123", upd
     if (_id && userModel) { 
       req.user = { ...userModel.users[`${_id}`] };
       req.user.push = jest.fn((x, y) => mergeUpdate(x, y));
+      req.headers.token = req.user.token;
     }
     if (updateKey !== null) req.headers.update = `${updateKey}`;
     return req;

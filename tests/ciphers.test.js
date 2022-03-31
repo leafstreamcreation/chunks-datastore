@@ -1,3 +1,4 @@
+require("dotenv/config");
 const User = require("../src/models/User.model");
 
 const addCryptoFunctions = require("../src/routes/middleware/ciphers");
@@ -12,14 +13,12 @@ describe("Spec for crypto functions", () => {
         const next = () => {};
         addCryptoFunctions(req, null, next);
 
-        const TESTUSER = { name: "Test", token: "Test", credentials: "TestPass", updateKey: 1 };
-
-        const copy1 = {...TESTUSER};
-        const emptyData = req.ciphers.obscureActivities([], copy1);
-        copy1.data = emptyData;
-        const emptyActsUser = await User.create(copy1);
+        const newUser = { token: "Test1", credentials: "TestPass1", updateKey: 1 };
+        const emptyData = req.ciphers.obscureActivities([], "Test1", 1);
+        newUser.data = emptyData;
+        const emptyActsUser = await User.create(newUser);
         const later = await User.findById(emptyActsUser._id).exec();
-        const emptyActsResult = req.ciphers.revealActivities(later);
+        const emptyActsResult = req.ciphers.revealActivities("Test1", later);
         await User.findByIdAndDelete(emptyActsUser._id).exec();
         expect(emptyActsResult).toEqual([]);
         
@@ -28,12 +27,12 @@ describe("Spec for crypto functions", () => {
             { id: 1, name: "running", history: [{}], group: 0 },
             { id: 2, name: "biking", history: [{}], group: 0 }
         ];
-        const copy2 = {...TESTUSER};
-        const data = req.ciphers.obscureActivities(activities, copy2);
-        copy2.data = data;
-        const user = await User.create(copy2);
+        const newUser2 = { token: "Test", credentials: "TestPass", updateKey: 1 };
+        const data = req.ciphers.obscureActivities(activities, "Test", 1);
+        newUser2.data = data;
+        const user = await User.create(newUser2);
         const after = await User.findById(user._id).exec();
-        const result = req.ciphers.revealActivities(after);
+        const result = req.ciphers.revealActivities("Test", after);
         await User.findByIdAndDelete(user._id).exec();
         x.connections[0].close();
 
@@ -49,7 +48,7 @@ describe("Spec for crypto functions", () => {
         const name = "Derek";
         const [literal, token] = req.ciphers.tokenGen(name, mutator);
         expect(literal).toBe(name);
-        const tokenOut = req.ciphers.revealToken({ token, name });
+        const tokenOut = req.ciphers.revealToken({ token }, name );
         expect(tokenOut).toBe(name);
 
     });
