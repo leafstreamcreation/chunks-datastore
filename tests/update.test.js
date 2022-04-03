@@ -19,14 +19,15 @@ describe("Spec for update route", () => {
         ];
 
         const loginRes = MockRes();
-        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
+        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
         const res = MockRes();
         
         const user2Data = [];
         expect(instance.userModel.users["2"].updateKey).toBe(1);
-        expect(instance.userModel.users["2"].data).toEqual(user2Data);
+        expect(instance.userDataModel.entries["2"].data).toEqual(user2Data);
         expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: {}, expireId: 1 });
-        const user2Init = { ...instance.userModel.users["2"] };
+        const user2Init = { ...instance.userModel.users["2"], dataKey:2 };
+        user2Init.data = [];
         user2Init.push = req.user.push;
         
         await updateHandler(req, res, null, instance);
@@ -34,16 +35,17 @@ describe("Spec for update route", () => {
         const updateResult = { updateKey: 2 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
-        
-        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, user2Init);
+
+        const reqUser = { ...user2Init, name, token: { name, credentials: user2Init.credentials } };
+        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, reqUser);
         expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], name, instance.userModel.users["2"].updateKey);
         expect(req.user.push).toHaveBeenCalledWith([], update);
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
         expect(instance.userModel.users["2"].updateKey).toBe(2);
-        expect(instance.userModel.users["2"].data).toEqual([update[0].val]);
+        expect(instance.userDataModel.entries["2"].data).toEqual([update[0].val]);
         
-        const mockLoginPayload = { token: { name }, activities: [{ id: 1, name: "squashing", history: [{}], group: 0 }], updateKey: 2 };
+        const mockLoginPayload = { token: reqUser.token, activities: [{ id: 1, name: "squashing", history: [{}], group: 0 }], updateKey: 2 };
         expect(loginRes.status).toHaveBeenCalledWith(200);
         expect(loginRes.json).toHaveBeenCalledWith(mockLoginPayload);
 
@@ -58,7 +60,7 @@ describe("Spec for update route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({}, { _id: 2, userModel: instance.userModel }, 1, {});
+        const req = MockReq({}, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, {});
         const res = MockRes();
         
         expect("2" in req.app.locals.waitingUsers).toBe(false);
@@ -90,7 +92,7 @@ describe("Spec for update route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({}, { _id: 2, userModel: instance.userModel }, 1, { "2": {}});
+        const req = MockReq({}, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, { "2": {}});
         const res = MockRes();
         
         expect("2" in req.app.locals.waitingUsers).toBe(true);
@@ -120,7 +122,7 @@ describe("Spec for update route", () => {
             { op: 3, val: { _id: 1, name: "squashing", history: [{}], group: 0 }}
         ];
 
-        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel }, 1, {});
+        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, {});
         const res = MockRes();
         
         expect("2" in req.app.locals.waitingUsers).toBe(false);
@@ -146,7 +148,7 @@ describe("Spec for update route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({}, { _id: 2, userModel: instance.userModel }, 2, {});
+        const req = MockReq({}, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 2, {});
         const res = MockRes();
         
         expect(instance.userModel.users["2"].updateKey).toBe(1);

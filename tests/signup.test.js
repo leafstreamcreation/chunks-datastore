@@ -2,6 +2,7 @@ require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { signupHandler: signup } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
+const SEPARATOR = process.env.CRED_SEPARATOR;
 
 describe("Spec for signup route", () => {
   
@@ -15,6 +16,7 @@ describe("Spec for signup route", () => {
         const instance =  MockDB({ invitations });
         const name = "RacquelettaMoss";
         const password = "secret123";
+        const credentials = name + SEPARATOR + password;
         const req = MockReq({ ticket, name, password });
         const res = MockRes();
         
@@ -24,20 +26,25 @@ describe("Spec for signup route", () => {
         expect(Object.values(instance.userModel.users).length).toBe(0);
     
         await signup(req, res, null, instance);
-        const signupResponse = { token: { name }, activities: [], updateKey: 1 };
+        const signupResponse = { token: { name, credentials }, activities: [], updateKey: "1" };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(signupResponse);
 
-        const newUser = { _id: 1, token:`{ "name": "${name}" }`, credentials: name + password, data: [], updateKey: 1 };
+        const newUser = { _id: 1, credentials, data: 1, updateKey: "1" };
         expect(instance.userModel.users["1"]).toEqual(newUser);
+        expect(instance.userDataModel.entries["1"].data).toEqual([]);
         expect(instance.invitationModel.invitations[0]).toEqual({ _id: 1, codeHash: "WXYZ", expires });
         expect(instance.invitationModel.invitations.length).toBe(1);
 
-        expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name);
-        expect(req.ciphers.compare).toHaveBeenCalled();
-        expect(req.ciphers.revealToken).toHaveBeenCalledTimes(0);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(ticket);
+        expect(req.ciphers.compare).toHaveBeenCalledWith(ticket, ticket);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(name + SEPARATOR + password);
+        expect(req.ciphers.compare).toHaveBeenCalledTimes(2);
+        expect(req.ciphers.compare).not.toHaveBeenCalledWith(credentials, credentials);
+        expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name, password);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
         expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1);
+        expect(req.ciphers.updateKeyGen).toHaveBeenCalledWith(1, name);
     });
 
     test("signup with invalid credentials returns errors", async () => {
@@ -49,7 +56,7 @@ describe("Spec for signup route", () => {
         ];
         const name = "RacquelettaMoss";
         const password = "secret123";
-        const users = [ { name, password }];
+        const users = [ { name, password } ];
         
         const instance =  MockDB({ invitations, users });
         
@@ -59,39 +66,32 @@ describe("Spec for signup route", () => {
         ];
         expect(instance.invitationModel.invitations).toEqual(dbInvitations);
         
-        const nohash = MockReq({ ticket: null, name, password });
-        const nohashRes = MockRes();
-        await signup(nohash, nohashRes, null, instance);
-        expect(nohashRes.status).toHaveBeenCalledWith(400);
-        expect(nohashRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGTICKET);
+        const noTicket = MockReq({ ticket: null, name, password });
+        const noTicketRes = MockRes();
+        await signup(noTicket, noTicketRes, null, instance);
+        expect(noTicketRes.status).toHaveBeenCalledWith(400);
+        expect(noTicketRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGTICKET);
 
 
-        const noname = MockReq({ ticket, name: null, password });
-        const nonameRes = MockRes();
-        await signup(noname, nonameRes, null, instance);
-        expect(nonameRes.status).toHaveBeenCalledWith(400);
-        expect(nonameRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGUSERNAME);
+        const noCred = MockReq({ ticket, name: null, password });
+        const noCredRes = MockRes();
+        await signup(noCred, noCredRes, null, instance);
+        expect(noCredRes.status).toHaveBeenCalledWith(400);
+        expect(noCredRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGCREDENTIALS);
 
 
-        const nopass = MockReq({ ticket, name, password: null });
-        const nopassRes = MockRes();
-        await signup(nopass, nopassRes, null, instance);
-        expect(nopassRes.status).toHaveBeenCalledWith(400);
-        expect(nopassRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGPASSWORD);
-
-
-        const badhash = MockReq({ ticket: "BEEF", name, password });
-        const badhashRes = MockRes();
-        await signup(badhash, badhashRes, null, instance);
-        expect(badhashRes.status).toHaveBeenCalledWith(403);
-        expect(badhashRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDTICKET);
+        const badTicket = MockReq({ ticket: "BEEF", name, password });
+        const badTicketRes = MockRes();
+        await signup(badTicket, badTicketRes, null, instance);
+        expect(badTicketRes.status).toHaveBeenCalledWith(403);
+        expect(badTicketRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDTICKET);
 
 
         const badcreds = MockReq({ ticket, name, password });
         const badcredsRes = MockRes();
         await signup(badcreds, badcredsRes, null, instance);
         expect(badcredsRes.status).toHaveBeenCalledWith(403);
-        expect(badcredsRes.json).toHaveBeenCalledWith({ msg: "user already exists", ticketRefund: ticket });
+        expect(badcredsRes.json).toHaveBeenCalledWith({ ticketRefund: ticket });
 
 
         expect(instance.invitationModel.invitations).toEqual(dbInvitations);
