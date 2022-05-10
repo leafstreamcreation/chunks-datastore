@@ -52,8 +52,8 @@ module.exports = (req, res, next) => {
     return encData;
   };
   
-  const revealKey = (cKeyIn, name) => {
-    const literal = CryptoJS.AES.decrypt(cKeyIn, name + `${process.env.APP_SIGNATURE + process.env.OUTBOUND_KEY}`).toString(CryptoJS.enc.Utf8);
+  const revealKey = (cKeyIn, name, local = false) => {
+    const literal = CryptoJS.AES.decrypt(cKeyIn, name + `${process.env.APP_SIGNATURE + !local ? process.env.OUTBOUND_KEY : process.env.LOCAL_KEY}`).toString(CryptoJS.enc.Utf8);
     return parseInt(literal);
   };
   

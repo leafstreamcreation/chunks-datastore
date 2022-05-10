@@ -138,7 +138,8 @@ router.post("/invite", (req, res, next) => {
 });
 
 const updateHandler = async (req, res, next, { userModel = User, userDataModel = UserData }) => {
-  if (req.headers.update !== `${req.user.updateKey}`) return res.status(403).json({ selfDestruct: true });
+  const latestKey = req.ciphers.revealKey(req.user.updateKey, req.user.name, true);
+  if (req.user.updateArg !== latestKey) return res.status(403).json({ selfDestruct: true });
   const update = req.body?.update;
   const id = `${req.user._id}`;
   const listeningForUpdates = id in req.app.locals.waitingUsers;
@@ -154,10 +155,11 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   const name = req.user.name;
   const activities = req.ciphers.revealActivities(name, req.user);
   const newActivities = req.user.push(activities, update);
-  const updateKey = req.user.updateKey + 1;
+  const updateKey = latestKey + 1;
   const data = req.ciphers.obscureActivities(newActivities, name, updateKey);
+  const { out:outKey, local:localKey } = req.ciphers.updateKeyGen(updateKey, name);
   //update data and updatekey
-  const writeNewKey = userModel.findByIdAndUpdate(req.user._id, { updateKey }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const writeNewKey = userModel.findByIdAndUpdate(req.user._id, { updateKey: localKey }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   const writeNewData = userDataModel.findByIdAndUpdate(req.user.dataKey, { data }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   const [ updatedKey, updatedData ] = await Promise.all([writeNewKey, writeNewData]);
   if (!updatedKey || !updatedData) return res.status(500).json(ERRORMSG.CTD);
@@ -170,7 +172,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   }
   clearTimeout(req.app.locals.waitingUsers[id].expireId);
   delete req.app.locals.waitingUsers[id];
-  return res.status(200).json({ updateKey });
+  return res.status(200).json({ updateKey: outKey });
 };
 router.post("/update", userPrivileged, (req, res, next) => {
   updateHandler(req, res, next, { userModel: User, userDataModel: UserData });
