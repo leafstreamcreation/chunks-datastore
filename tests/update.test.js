@@ -26,26 +26,28 @@ describe("Spec for update route", () => {
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         expect(instance.userDataModel.entries["2"].data).toEqual(user2Data);
         expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: {}, expireId: 1 });
-        const user2Init = { ...instance.userModel.users["2"], dataKey:2 };
+        const user2Init = { ...instance.userModel.users["2"], dataKey:2, updateArg: 1 };
         user2Init.data = [];
         user2Init.push = req.user.push;
         
         await updateHandler(req, res, null, instance);
         
-        const updateResult = { updateKey: 2 };
+        const updateResult = { updateKey: '2' };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
         const reqUser = { ...user2Init, name, token: { name, credentials: user2Init.credentials } };
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update)
         expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, reqUser);
-        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], name, instance.userModel.users["2"].updateKey);
+        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], name, parseInt(instance.userModel.users["2"].updateKey));
         expect(req.user.push).toHaveBeenCalledWith([], update);
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
-        expect(instance.userModel.users["2"].updateKey).toBe(2);
+        expect(instance.userModel.users["2"].updateKey).toBe('2');
         expect(instance.userDataModel.entries["2"].data).toEqual([update[0].val]);
         
         const mockLoginPayload = { token: reqUser.token, activities: [{ id: 1, name: "squashing", history: [{}], group: 0 }], updateKey: 2 };
+        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], name, parseInt(instance.userModel.users["2"].updateKey), true);
         expect(loginRes.status).toHaveBeenCalledWith(200);
         expect(loginRes.json).toHaveBeenCalledWith(mockLoginPayload);
 

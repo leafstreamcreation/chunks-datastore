@@ -161,7 +161,7 @@ const MockReq = ({ ticket, name, password, update }, user = {}, updateKey = null
   const req = { 
         headers: {},
         ciphers: {
-            obscureActivities: jest.fn((x,y,z) => x),
+            obscureActivities: jest.fn((w,x,y,z) => w),
             revealActivities: jest.fn((x, { data }) => data),
             tokenGen: jest.fn((x,y) => { return {name: x, credentials: x + "/-/" + y}; }),
             revealToken: jest.fn((x,y) => { return {name: x, credentials: x + "/-/" + y}; }),
@@ -195,6 +195,7 @@ const MockReq = ({ ticket, name, password, update }, user = {}, updateKey = null
       req.user.dataKey = req.user.data;
       req.user.name = t.name;
       req.user.data = userDataModel.entries[`${_id}`].data;
+      req.user.updateArg = updateKey;
     }
     if (updateKey !== null) req.headers.update = `${updateKey}`;
     return req;

@@ -44,6 +44,7 @@ describe("Spec for signup route", () => {
         expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name, password);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
         expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1);
+        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1, true);
         expect(req.ciphers.updateKeyGen).toHaveBeenCalledWith(1, name);
     });
 

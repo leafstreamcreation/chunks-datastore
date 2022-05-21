@@ -23,28 +23,24 @@ module.exports = (req, res, next) => {
   const tokenGen = (name, password, mutator = join) => {
     const encName = CryptoJS.AES.encrypt(name, `${process.env.APP_SIGNATURE + process.env.OUTBOUND_NAME}`);
     const nameToken = encName.toString();
-    // CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(encName.toString()));
     const literal = mutator(name, password);
     const encCred = CryptoJS.AES.encrypt(literal, name + `${process.env.APP_SIGNATURE + process.env.OUTBOUND_CRED}`);
     const credToken = encCred.toString();
-    //CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(encCred.toString()));
     return { name:nameToken, credentials:credToken };
   }
 
   const revealToken = (cName, cCred) => {
-    // const decData = CryptoJS.enc.Base64.parse(cName).toString(CryptoJS.enc.Utf8);
     const name = CryptoJS.AES.decrypt(cName, `${process.env.APP_SIGNATURE + process.env.OUTBOUND_NAME}`).toString(CryptoJS.enc.Utf8);
-    // const decData = CryptoJS.enc.Base64.parse(user.token).toString(CryptoJS.enc.Utf8);
     const credentials = CryptoJS.AES.decrypt(cCred, name + `${process.env.APP_SIGNATURE + process.env.OUTBOUND_CRED}`).toString(CryptoJS.enc.Utf8);
     return { name, credentials };
   };
   
   const revealInbound = (cString) => {
-    return CryptoJS.AES.decrypt(cString, `${process.env.INBOUND_CRED}`).toString(CryptoJS.enc.Utf8);
+    return CryptoJS.AES.decrypt(cString, `${process.env.CLIENT_SIGNATURE}`).toString(CryptoJS.enc.Utf8);
   }
   
-  const obscureActivities = (activities, name, updateKey) => {
-    const key = `${name}${process.env.APP_SIGNATURE}${updateKey}`;
+  const obscureActivities = (activities, name, updateKey, outbound = false) => {
+    const key = `${name}${outbound ? process.env.OUTBOUND_ACTIVITIES : process.env.APP_SIGNATURE}${updateKey}`;
     if (!activities) return "";
     const jsonString = JSON.stringify(activities);
     const encJson = CryptoJS.AES.encrypt(jsonString, key);

@@ -50,7 +50,8 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
       oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
       clearTimeout(expire);
     }
-    const activities = req.ciphers.revealActivities(name, { updateKey: update, data });
+    const rActivities = req.ciphers.revealActivities(name, { updateKey: update, data });
+    const activities = req.ciphers.obscureActivities(rActivities, name, update, true);
     const expireId = setTimeout((req, res, id) => {
       res.status(403).json(ERRORMSG.EXPIREDLOGIN);
       delete req.app.locals.waitingUsers[id].login;
@@ -66,7 +67,8 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
     };
   }
   else {
-    const activities = req.ciphers.revealActivities(name, { updateKey: update, data });
+    const rActivities = req.ciphers.revealActivities(name, { updateKey: update, data });
+    const activities = req.ciphers.obscureActivities(rActivities, name, update, true);
     return loginOk(res, { token: userToken, activities, updateKey });
   }
 };
@@ -104,7 +106,8 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
   const key = req.ciphers.updateKeyGen(1, name);
   await userModel.create({ credentials, data: newUserData._id, updateKey: key.local }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  return res.status(200).json({ token, activities: [], updateKey: key.out });
+  const activities = req.ciphers.obscureActivities([], name, 1, true);
+  return res.status(200).json({ token, activities, updateKey: key.out });
 };
 router.post("/signup", (req, res, next) => {
   signupHandler(req, res, next, { userModel: User, userDataModel: UserData, invitationModel: Invitation });
@@ -140,10 +143,10 @@ router.post("/invite", (req, res, next) => {
 const updateHandler = async (req, res, next, { userModel = User, userDataModel = UserData }) => {
   const latestKey = req.ciphers.revealKey(req.user.updateKey, req.user.name, true);
   if (req.user.updateArg !== latestKey) return res.status(403).json({ selfDestruct: true });
-  const update = req.body?.update;
+  const cUpdate = req.body?.update;
   const id = `${req.user._id}`;
   const listeningForUpdates = id in req.app.locals.waitingUsers;
-  if (!update) {
+  if (!cUpdate) {
     if (listeningForUpdates) return res.status(200).json({ defer: true });
     req.app.locals.waitingUsers[id] = {};
     req.app.locals.waitingUsers[id].expireId = setTimeout((r, i) => {
@@ -153,8 +156,9 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   }
   if (!listeningForUpdates) return res.status(200).json({ defer: true });
   const name = req.user.name;
-  const activities = req.ciphers.revealActivities(name, req.user);
-  const newActivities = req.user.push(activities, update);
+  const rActivities = req.ciphers.revealActivities(name, req.user);
+  const update = req.ciphers.revealInbound(cUpdate);
+  const newActivities = req.user.push(rActivities, update);
   const updateKey = latestKey + 1;
   const data = req.ciphers.obscureActivities(newActivities, name, updateKey);
   const { out:outKey, local:localKey } = req.ciphers.updateKeyGen(updateKey, name);
@@ -166,6 +170,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   const userWaiting = req.app.locals.waitingUsers[id].login;
   if (userWaiting) {
     const { res: loginRes } = req.app.locals.waitingUsers[id].login;
+    const activities = req.ciphers.obscureActivities(newActivities, name, updateKey, true);
     loginOk(loginRes, { token: req.user.token, activities: newActivities, updateKey });
     clearTimeout(req.app.locals.waitingUsers[id].login.expireId);
     delete req.app.locals.waitingUsers[id].login;
