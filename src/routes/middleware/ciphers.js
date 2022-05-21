@@ -35,8 +35,11 @@ module.exports = (req, res, next) => {
     return { name, credentials };
   };
   
-  const revealInbound = (cString) => {
-    return CryptoJS.AES.decrypt(cString, `${process.env.CLIENT_SIGNATURE}`).toString(CryptoJS.enc.Utf8);
+  const revealInbound = (cString, update = false) => {
+    if (!update) return CryptoJS.AES.decrypt(cString, `${process.env.CLIENT_SIGNATURE}`).toString(CryptoJS.enc.Utf8);
+    const decData = CryptoJS.enc.Base64.parse(user.data).toString(CryptoJS.enc.Utf8);
+    const bytes = CryptoJS.AES.decrypt(decData, key).toString(CryptoJS.enc.Utf8);
+    return (!bytes || bytes === "") ? "" : JSON.parse(bytes);
   }
   
   const obscureActivities = (activities, name, updateKey, outbound = false) => {

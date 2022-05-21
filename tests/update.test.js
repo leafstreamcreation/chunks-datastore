@@ -37,7 +37,7 @@ describe("Spec for update route", () => {
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
         const reqUser = { ...user2Init, name, token: { name, credentials: user2Init.credentials } };
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update)
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, true);
         expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, reqUser);
         expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], name, parseInt(instance.userModel.users["2"].updateKey));
         expect(req.user.push).toHaveBeenCalledWith([], update);

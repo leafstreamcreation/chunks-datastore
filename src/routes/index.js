@@ -157,7 +157,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   if (!listeningForUpdates) return res.status(200).json({ defer: true });
   const name = req.user.name;
   const rActivities = req.ciphers.revealActivities(name, req.user);
-  const update = req.ciphers.revealInbound(cUpdate);
+  const update = req.ciphers.revealInbound(cUpdate, true);
   const newActivities = req.user.push(rActivities, update);
   const updateKey = latestKey + 1;
   const data = req.ciphers.obscureActivities(newActivities, name, updateKey);
@@ -171,7 +171,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   if (userWaiting) {
     const { res: loginRes } = req.app.locals.waitingUsers[id].login;
     const activities = req.ciphers.obscureActivities(newActivities, name, updateKey, true);
-    loginOk(loginRes, { token: req.user.token, activities: newActivities, updateKey });
+    loginOk(loginRes, { token: req.user.token, activities, updateKey });
     clearTimeout(req.app.locals.waitingUsers[id].login.expireId);
     delete req.app.locals.waitingUsers[id].login;
   }
