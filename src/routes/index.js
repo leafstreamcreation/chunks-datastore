@@ -50,7 +50,7 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
       oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
       clearTimeout(expire);
     }
-    const rActivities = req.ciphers.revealActivities(name, { updateKey: update, data });
+    const rActivities = req.ciphers.revealActivities(name, { updateArg: update, data });
     const activities = req.ciphers.obscureActivities(rActivities, name, update, true);
     const expireId = setTimeout((req, res, id) => {
       res.status(403).json(ERRORMSG.EXPIREDLOGIN);
@@ -67,7 +67,7 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
     };
   }
   else {
-    const rActivities = req.ciphers.revealActivities(name, { updateKey: update, data });
+    const rActivities = req.ciphers.revealActivities(name, { updateArg: update, data });
     const activities = req.ciphers.obscureActivities(rActivities, name, update, true);
     return loginOk(res, { token: userToken, activities, updateKey });
   }

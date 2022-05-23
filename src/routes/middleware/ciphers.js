@@ -76,7 +76,7 @@ module.exports = (req, res, next) => {
   }
   
   const revealActivities = (name, user) => {
-    const key = `${name}${process.env.APP_SIGNATURE}${user.updateKey}`;
+    const key = `${name}${process.env.APP_SIGNATURE}${user.updateArg}`;
     const decData = CryptoJS.enc.Base64.parse(user.data).toString(CryptoJS.enc.Utf8);
     const bytes = CryptoJS.AES.decrypt(decData, key).toString(CryptoJS.enc.Utf8);
     return (!bytes || bytes === "") ? "" : JSON.parse(bytes);

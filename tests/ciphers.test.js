@@ -21,7 +21,7 @@ describe("Spec for crypto functions", () => {
         const later = await User.findById(emptyActsUser._id).exec();
         const emptyId = later.data;
         const { data:laterEmptyData } = await UserData.findById(emptyId).exec();
-        const popEmpty = { _id: later._id, credentials: later.credentials, token: later.token, data: laterEmptyData, updateKey: later.updateKey }
+        const popEmpty = { _id: later._id, credentials: later.credentials, token: later.token, data: laterEmptyData, updateArg: later.updateKey }
         const emptyActsResult = req.ciphers.revealActivities("Test1", popEmpty);
         await User.findByIdAndDelete(emptyActsUser._id).exec();
         await UserData.findByIdAndDelete(emptyId).exec();
@@ -39,7 +39,7 @@ describe("Spec for crypto functions", () => {
         const after = await User.findById(user._id).exec();
         const id = after.data;
         const { data:afterData } = await UserData.findById(id).exec();
-        const pop = { _id: after._id, credentials: after.credentials, token: after.token, data: afterData, updateKey: after.updateKey }
+        const pop = { _id: after._id, credentials: after.credentials, token: after.token, data: afterData, updateArg: after.updateKey }
         const result = req.ciphers.revealActivities("Test", pop);
         await User.findByIdAndDelete(user._id).exec();
         await UserData.findByIdAndDelete(id).exec();
