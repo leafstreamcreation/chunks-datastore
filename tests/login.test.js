@@ -33,7 +33,7 @@ describe("Spec for login route", () => {
         expect(req.ciphers.compare).toHaveBeenCalledWith(u2Creds, instance.userModel.users["2"].credentials);
         expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name, password);
         expect(req.ciphers.exportKey).toHaveBeenCalledWith(instance.userModel.users["2"].updateKey, name);
-        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, { updateKey: instance.userModel.users["2"].updateKey, data: instance.userDataModel.entries["2"].data });
+        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, { updateArg: instance.userModel.users["2"].updateKey, data: instance.userDataModel.entries["2"].data });
         expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1, true);
     });
 
