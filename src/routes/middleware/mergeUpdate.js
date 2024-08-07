@@ -1,7 +1,10 @@
 const { keyBy } = require("lodash");
 
-module.exports = (activities, update) => {
-    const newActivities = keyBy(JSON.parse(JSON.stringify(activities)), "id");
+module.exports = (userGroupsSettingsAndActivities, update) => {
+    const [ settings, groups, activities] = JSON.parse(JSON.stringify(userGroupsSettingsAndActivities))
+    const newActivities = keyBy(activities, "id");
+    const newGroups = keyBy(groups, "id");
+    let newSettings = settings;
     update.forEach(command => {
         const { op, id, val } = command;
         if (op === 3) newActivities[`${val.id}`] = val;
@@ -28,6 +31,23 @@ module.exports = (activities, update) => {
                 });
             }
         }
+        else if (op === 6) newGroups[`${val.id}`] = val;
+        else if (op === 4) {
+            for (activity in Object.create(newActivities)) {
+                if (activity.group === id) delete newActivities[`${activity.id}`];
+            }
+            delete newGroups[`${id}`];
+
+        }
+        else if (op === 5) {
+            if ("name" in val) newGroups[`${id}`].name = val.name;
+            if ("properties" in val) newGroups[`${id}`].properties = val.properties;
+
+        }
+        else if (op === 7) {
+            //update user settings
+            newSettings = val;
+        }
     });
-    return Object.values(newActivities);
+    return [newSettings, Object.values(newGroups), Object.values(newActivities)];
 };

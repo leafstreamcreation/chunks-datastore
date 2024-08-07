@@ -4,28 +4,29 @@ const { ERRORMSG } = require("../src/errors");
 
 describe("Spec for parsing updates from clients", () => {
   
-    test("create", () => {
-        const emptyData = [];
+    test("create activity", () => {
+        const emptyActivities = [];
         const notEmptyData = [ { id: 1 } ];
         const command = [
             { op: 3, val: { id: 3 } },
             { op: 3, val: { id: 2 } }
         ];
+        const generateData = (activities) => ["foo", [], activities];
 
-        const createEmpty = mergeUpdate(emptyData, command);
-        expect(createEmpty).toEqual([
+        const createEmpty = mergeUpdate(generateData(emptyActivities), command);
+        expect(createEmpty).toEqual(generateData([
             { id: 2 },
             { id: 3 }
-        ]);
-        const createNotEmpty = mergeUpdate(notEmptyData, command);
-        expect(createNotEmpty).toEqual([
+        ]));
+        const createNotEmpty = mergeUpdate(generateData(notEmptyData), command);
+        expect(createNotEmpty).toEqual(generateData([
             { id: 1 },
             { id: 2 },
             { id: 3 }
-        ]);
+        ]));
     });
-  
-    test("delete", () => {
+  //todo write and pass remaining tests
+    test("delete activity", () => {
         const data = [
             { id: 1 },
             { id: 2 },
@@ -42,7 +43,7 @@ describe("Spec for parsing updates from clients", () => {
         ]);
     });
   
-    test("update", () => {
+    test("update activity", () => {
         const data = [
             { id: 1, name: "sleep", history: [{}], group: 0 },
             { id: 2, name: "eat", history: [{}], group: 0 },
@@ -69,5 +70,38 @@ describe("Spec for parsing updates from clients", () => {
                 {}
             ], group: 0 }
         ]);
+    });
+
+    test("create group", () => {
+        // const emptyData = [];
+        // const notEmptyData = [ { id: 1 } ];
+        // const command = [
+        //     { op: 3, val: { id: 3 } },
+        //     { op: 3, val: { id: 2 } }
+        // ];
+
+        // const createEmpty = mergeUpdate(emptyData, command);
+        // expect(createEmpty).toEqual([
+        //     { id: 2 },
+        //     { id: 3 }
+        // ]);
+        // const createNotEmpty = mergeUpdate(notEmptyData, command);
+        // expect(createNotEmpty).toEqual([
+        //     { id: 1 },
+        //     { id: 2 },
+        //     { id: 3 }
+        // ]);
+    });
+
+    test("delete group", () => {
+
+    });
+
+    test("update group", () => {
+
+    });
+
+    test("update settings", () => {
+
     });
 });
