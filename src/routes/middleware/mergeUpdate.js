@@ -33,7 +33,7 @@ module.exports = (userGroupsSettingsAndActivities, update) => {
         }
         else if (op === 6) newGroups[`${val.id}`] = val;
         else if (op === 4) {
-            for (activity in Object.create(newActivities)) {
+            for (activity of Object.values(newActivities)) {
                 if (activity.group === id) delete newActivities[`${activity.id}`];
             }
             delete newGroups[`${id}`];
