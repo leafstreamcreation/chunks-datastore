@@ -50,8 +50,8 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
       oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
       clearTimeout(expire);
     }
-    const rActivities = req.ciphers.revealActivities(name, { updateArg: update, data });
-    const activities = req.ciphers.obscureActivities(rActivities, name, update, true);
+    const rUserData = req.ciphers.revealUserData(name, { updateArg: update, data });
+    const userData = req.ciphers.obscureUserData(rUserData, name, update, true);
     const expireId = setTimeout((req, res, id) => {
       res.status(403).json(ERRORMSG.EXPIREDLOGIN);
       delete req.app.locals.waitingUsers[id].login;
@@ -60,16 +60,16 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
       res, 
       payload: {
         token: userToken, 
-        activities, 
+        userData, 
         updateKey
       },
       expireId
     };
   }
   else {
-    const rActivities = req.ciphers.revealActivities(name, { updateArg: update, data });
-    const activities = req.ciphers.obscureActivities(rActivities, name, update, true);
-    return loginOk(res, { token: userToken, activities, updateKey });
+    const rUserData = req.ciphers.revealUserData(name, { updateArg: update, data });
+    const userData = req.ciphers.obscureUserData(rUserData, name, update, true);
+    return loginOk(res, { token: userToken, userData, updateKey });
   }
 };
 router.post("/login", (req, res, next) => {
@@ -101,13 +101,14 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
   const [name, password] = inCreds.split(process.env.CRED_SEPARATOR);
   const token = req.ciphers.tokenGen(name, password);
   const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  const data = req.ciphers.obscureActivities([], name, 1);
+  const initialUserData = ["{}", [], []];
+  const data = req.ciphers.obscureUserData(initialUserData, name, 1);
   const newUserData = await userDataModel.create({ data }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   const key = req.ciphers.updateKeyGen(1, name);
   await userModel.create({ credentials, data: newUserData._id, updateKey: key.local }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  const activities = req.ciphers.obscureActivities([], name, 1, true);
-  return res.status(200).json({ token, activities, updateKey: key.out });
+  const userData = req.ciphers.obscureUserData(initialUserData, name, 1, true);
+  return res.status(200).json({ token, userData, updateKey: key.out });
 };
 router.post("/signup", (req, res, next) => {
   signupHandler(req, res, next, { userModel: User, userDataModel: UserData, invitationModel: Invitation });
@@ -156,11 +157,11 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   }
   if (!listeningForUpdates) return res.status(200).json({ defer: true });
   const name = req.user.name;
-  const rActivities = req.ciphers.revealActivities(name, req.user);
+  const rUserData = req.ciphers.revealUserData(name, req.user);
   const update = req.ciphers.revealInbound(cUpdate, true);
-  const newActivities = req.user.push(rActivities, update);
+  const newUserData = req.user.push(rUserData, update);
   const updateKey = latestKey + 1;
-  const data = req.ciphers.obscureActivities(newActivities, name, updateKey);
+  const data = req.ciphers.obscureUserData(newUserData, name, updateKey);
   const { out:outKey, local:localKey } = req.ciphers.updateKeyGen(updateKey, name);
   //update data and updatekey
   const writeNewKey = userModel.findByIdAndUpdate(req.user._id, { updateKey: localKey }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
@@ -170,8 +171,8 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   const userWaiting = req.app.locals.waitingUsers[id].login;
   if (userWaiting) {
     const { res: loginRes } = req.app.locals.waitingUsers[id].login;
-    const activities = req.ciphers.obscureActivities(newActivities, name, updateKey, true);
-    loginOk(loginRes, { token: req.user.token, activities, updateKey });
+    const userData = req.ciphers.obscureUserData(newUserData, name, updateKey, true);
+    loginOk(loginRes, { token: req.user.token, userData, updateKey });
     clearTimeout(req.app.locals.waitingUsers[id].login.expireId);
     delete req.app.locals.waitingUsers[id].login;
   }

@@ -114,12 +114,12 @@ class UserDataModel {
     const dataArray = [];
     for (let i = 0; i < num; i++) {
       this.currentId += 1;
-      dataArray.push({ _id: this.currentId, data: [] });
+      dataArray.push({ _id: this.currentId, data: ["{}", [], []] });
     }
     this.entries = num ? keyBy(dataArray, "_id") : {};
   }
 
-  create({ data = [] }) {
+  create({ data = ["{}", [], []] }) {
     this.currentId += 1;
     this.entries[`${this.currentId}`] = { _id: this.currentId, data };
     return Promise.resolve({ _id: this.currentId, data });
@@ -161,8 +161,8 @@ const MockReq = ({ ticket, name, password, update }, user = {}, updateKey = null
   const req = { 
         headers: {},
         ciphers: {
-            obscureActivities: jest.fn((w,x,y,z) => w),
-            revealActivities: jest.fn((x, { data }) => data),
+            obscureUserData: jest.fn((w,x,y,z) => w),
+            revealUserData: jest.fn((x, { data }) => data),
             tokenGen: jest.fn((x,y) => { return {name: x, credentials: x + "/-/" + y}; }),
             revealToken: jest.fn((x,y) => { return {name: x, credentials: x + "/-/" + y}; }),
             revealInbound: jest.fn(x => x),

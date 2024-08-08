@@ -22,12 +22,12 @@ describe("Spec for update route", () => {
         const req = MockReq({ update }, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
         const res = MockRes();
         
-        const user2Data = [];
+        const user2Data = ["{}", [], []];
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         expect(instance.userDataModel.entries["2"].data).toEqual(user2Data);
         expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: {}, expireId: 1 });
         const user2Init = { ...instance.userModel.users["2"], dataKey:2, updateArg: 1 };
-        user2Init.data = [];
+        user2Init.data = ["{}", [], []];
         user2Init.push = req.user.push;
         
         await updateHandler(req, res, null, instance);
@@ -38,16 +38,16 @@ describe("Spec for update route", () => {
 
         const reqUser = { ...user2Init, name, token: { name, credentials: user2Init.credentials } };
         expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, true);
-        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, reqUser);
-        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], name, parseInt(instance.userModel.users["2"].updateKey));
-        expect(req.user.push).toHaveBeenCalledWith([], update);
+        expect(req.ciphers.revealUserData).toHaveBeenCalledWith(name, reqUser);
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]], name, parseInt(instance.userModel.users["2"].updateKey));
+        expect(req.user.push).toHaveBeenCalledWith(["{}", [], []], update);
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
         expect(instance.userModel.users["2"].updateKey).toBe('2');
-        expect(instance.userDataModel.entries["2"].data).toEqual([update[0].val]);
+        expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], [update[0].val]]);
         
-        const mockLoginPayload = { token: reqUser.token, activities: [{ id: 1, name: "squashing", history: [{}], group: 0 }], updateKey: 2 };
-        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([{ id: 1, name: "squashing", history: [{}], group: 0 }], name, parseInt(instance.userModel.users["2"].updateKey), true);
+        const mockLoginPayload = { token: reqUser.token, userData: ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]], updateKey: 2 };
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]], name, parseInt(instance.userModel.users["2"].updateKey), true);
         expect(loginRes.status).toHaveBeenCalledWith(200);
         expect(loginRes.json).toHaveBeenCalledWith(mockLoginPayload);
 
@@ -80,8 +80,8 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        expect(req.ciphers.revealActivities).not.toHaveBeenCalled();
-        expect(req.ciphers.obscureActivities).not.toHaveBeenCalled();
+        expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
         expect(req.user.push).not.toHaveBeenCalled();
     });
 
@@ -106,8 +106,8 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        expect(req.ciphers.revealActivities).not.toHaveBeenCalled();
-        expect(req.ciphers.obscureActivities).not.toHaveBeenCalled();
+        expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
         expect(req.user.push).not.toHaveBeenCalled();
     });
 
@@ -136,8 +136,8 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        expect(req.ciphers.revealActivities).not.toHaveBeenCalled();
-        expect(req.ciphers.obscureActivities).not.toHaveBeenCalled();
+        expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
         expect(req.user.push).not.toHaveBeenCalled();
     });
 
@@ -163,8 +163,8 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(403);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        expect(req.ciphers.revealActivities).not.toHaveBeenCalled();
-        expect(req.ciphers.obscureActivities).not.toHaveBeenCalled();
+        expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
         expect(req.user.push).not.toHaveBeenCalled();
     });
 });

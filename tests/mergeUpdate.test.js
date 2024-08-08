@@ -25,7 +25,7 @@ describe("Spec for parsing updates from clients", () => {
             { id: 3 }
         ]));
     });
-  //todo write and pass remaining tests
+
     test("delete activity", () => {
         const someActivities = [
             { id: 1 },

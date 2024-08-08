@@ -42,10 +42,10 @@ module.exports = (req, res, next) => {
     return (!bytes || bytes === "") ? "" : JSON.parse(bytes);
   }
   
-  const obscureActivities = (activities, name, updateKey, outbound = false) => {
+  const obscureUserData = (userData, name, updateKey, outbound = false) => {
     const key = `${name}${outbound ? process.env.OUTBOUND_ACTIVITIES : process.env.APP_SIGNATURE}${updateKey}`;
-    if (!activities) return "";
-    const jsonString = JSON.stringify(activities);
+    if (!userData) return "";
+    const jsonString = JSON.stringify(userData);
     const encJson = CryptoJS.AES.encrypt(jsonString, key);
     const encData = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(encJson.toString()));
     return encData;
@@ -75,7 +75,7 @@ module.exports = (req, res, next) => {
     return [ parseInt(localLiteral), exported];
   }
   
-  const revealActivities = (name, user) => {
+  const revealUserData = (name, user) => {
     const key = `${name}${process.env.APP_SIGNATURE}${user.updateArg}`;
     const decData = CryptoJS.enc.Base64.parse(user.data).toString(CryptoJS.enc.Utf8);
     const bytes = CryptoJS.AES.decrypt(decData, key).toString(CryptoJS.enc.Utf8);
@@ -83,8 +83,8 @@ module.exports = (req, res, next) => {
   };
 
   req.ciphers = { 
-    obscureActivities, 
-    revealActivities, 
+    obscureUserData, 
+    revealUserData, 
     tokenGen, 
     revealToken, 
     revealInbound, 

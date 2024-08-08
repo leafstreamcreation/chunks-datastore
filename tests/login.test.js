@@ -20,11 +20,11 @@ describe("Spec for login route", () => {
         const u2Creds = name + SEPARATOR + password
         const user2 = { _id: 2, credentials: u2Creds, data: 2, updateKey: 1 };
         expect(instance.userModel.users["2"]).toEqual(user2);
-        expect(instance.userDataModel.entries["2"].data).toEqual([]);
+        expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], []]);
         expect(Object.values(instance.userModel.users).length).toBe(2);
     
         await login(req, res, null, instance);
-        const loginResponse = { token: { name, credentials: user2.credentials }, activities: [], updateKey: 1 };
+        const loginResponse = { token: { name, credentials: user2.credentials }, userData: ["{}", [], []], updateKey: 1 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
@@ -33,8 +33,8 @@ describe("Spec for login route", () => {
         expect(req.ciphers.compare).toHaveBeenCalledWith(u2Creds, instance.userModel.users["2"].credentials);
         expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name, password);
         expect(req.ciphers.exportKey).toHaveBeenCalledWith(instance.userModel.users["2"].updateKey, name);
-        expect(req.ciphers.revealActivities).toHaveBeenCalledWith(name, { updateArg: instance.userModel.users["2"].updateKey, data: instance.userDataModel.entries["2"].data });
-        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1, true);
+        expect(req.ciphers.revealUserData).toHaveBeenCalledWith(name, { updateArg: instance.userModel.users["2"].updateKey, data: instance.userDataModel.entries["2"].data });
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], []], name, 1, true);
     });
 
     test("login with invalid credentials returns errors", async () => {
@@ -78,7 +78,7 @@ describe("Spec for login route", () => {
 
         expect("login" in req.app.locals.waitingUsers["2"]).toBe(true);
         expect(req.app.locals.waitingUsers["2"].login.res).toEqual(res);
-        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ token:{ name, credentials: u2Creds }, activities: [], updateKey: 1 });
+        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ token:{ name, credentials: u2Creds }, userData: ["{}", [], []], updateKey: 1 });
         expect("expireId" in req.app.locals.waitingUsers["2"].login).toBe(true);
 
         clearInterval(req.app.locals.waitingUsers["2"].login.expireId);

@@ -26,13 +26,13 @@ describe("Spec for signup route", () => {
         expect(Object.values(instance.userModel.users).length).toBe(0);
     
         await signup(req, res, null, instance);
-        const signupResponse = { token: { name, credentials }, activities: [], updateKey: "1" };
+        const signupResponse = { token: { name, credentials }, userData: ["{}", [], []], updateKey: "1" };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(signupResponse);
 
         const newUser = { _id: 1, credentials, data: 1, updateKey: "1" };
         expect(instance.userModel.users["1"]).toEqual(newUser);
-        expect(instance.userDataModel.entries["1"].data).toEqual([]);
+        expect(instance.userDataModel.entries["1"].data).toEqual(["{}", [], []]);
         expect(instance.invitationModel.invitations[0]).toEqual({ _id: 1, codeHash: "WXYZ", expires });
         expect(instance.invitationModel.invitations.length).toBe(1);
 
@@ -43,8 +43,8 @@ describe("Spec for signup route", () => {
         expect(req.ciphers.compare).not.toHaveBeenCalledWith(credentials, credentials);
         expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name, password);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1);
-        expect(req.ciphers.obscureActivities).toHaveBeenCalledWith([], name, 1, true);
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], []], name, 1);
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], []], name, 1, true);
         expect(req.ciphers.updateKeyGen).toHaveBeenCalledWith(1, name);
     });
 
