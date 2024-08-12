@@ -1,7 +1,7 @@
 {
-  "name": "chunks-datastore",
+  "name": "sencillo-datastore",
   "version": "1.0.0",
-  "description": "remote storage server for chunks pwa",
+  "description": "remote storage server for sencillo pwa",
   "main": "index.js",
   "scripts": {
     "test": "jest",
