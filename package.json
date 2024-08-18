@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "create-deployment-key": "node scripts/create-deployment-key.js"
   },
   "author": "Derek Noble",
   "license": "ISC",
