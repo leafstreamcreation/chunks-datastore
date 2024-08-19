@@ -11,5 +11,6 @@ async function generateAesKey(length = 256) {
 
 generateAesKey().then(async (cryptoKey) => {
   const keyBytes = await subtle.exportKey("raw", cryptoKey);
-  console.log(keyBytes);
+  const keyBuffer = Buffer.from(keyBytes);
+  console.log(keyBuffer.toString("hex"));
 });
