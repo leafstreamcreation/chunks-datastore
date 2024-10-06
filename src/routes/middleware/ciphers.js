@@ -31,7 +31,7 @@ module.exports = (req, res, next) => {
     //implement
   };
   
-  const obscureUserData = (creds, userData) => {
+  const obscureUserData = (creds, iv, userData) => {
     //replace with webcrypto
 
     // const key = `${name}${outbound ? process.env.OUTBOUND_ACTIVITIES : process.env.APP_SIGNATURE}${updateKey}`;
@@ -42,7 +42,7 @@ module.exports = (req, res, next) => {
     // return encData;
   };
 
-  const obscureUpdateKey = (creds, updateKey) => {
+  const obscureUpdateKey = (creds, iv, updateKey) => {
 
   };
   
