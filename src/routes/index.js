@@ -113,14 +113,16 @@ router.post("/signup", (req, res, next) => {
 });
 
 const inviteHandler = async (req, res, next, { stateModel = State, invitationModel = Invitation }) => {
-  const { password, ticket } = req.body;
-  if (!ticket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
-  if (!password) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
+  const { password: cPassword, ticket: cTicket } = req.body;
+  if (!cTicket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
+  if (!cPassword) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
 
   const state = await stateModel.findOne().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const password = req.ciphers.revealInbound(cPassword, CIPHERS.CREDENTIALS);
   const match = await req.ciphers.compare(password, state.adminHash).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!match) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
 
+  const ticket = req.ciphers.revealInbound(cTicket, CIPHERS.TICKET);
   let invitation = null;
   const pending = await invitationModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   for ( const i of pending) {
@@ -133,7 +135,7 @@ const inviteHandler = async (req, res, next, { stateModel = State, invitationMod
   if (invitation) return res.status(403).json(ERRORMSG.TICKETEXISTS);
   const codeHash = await req.ciphers.credentials(ticket).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   invitationModel.create({ codeHash, expires: new Date(Date.now() + 1000 * 60 * 30) }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  return res.status(200).json({ ticket });
+  return res.status(200).json({ ticket: cTicket });
 };
 router.post("/invite", (req, res, next) => {
   inviteHandler(req, res, next, { stateModel: State, invitationModel: Invitation });
