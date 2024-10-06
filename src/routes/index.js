@@ -8,6 +8,7 @@ const UserData = require("../models/UserData.model");
 
 const ciphers = require("./middleware/ciphers");
 router.use(ciphers);
+const { CIPHERS } = require("./middleware/cipherEnums");
 
 const userPrivileged = require("./middleware/userPrivileged");
 const { ERRORMSG } = require("../errors");
@@ -23,7 +24,7 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
   const { credentials:cCred } = req.body;
   
   if (!cCred) return res.status(400).json(ERRORMSG.MISSINGCREDENTIALS);
-  const inCreds = req.ciphers.revealInbound(cCred); 
+  const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS); 
   const users = await userModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   let user;
   for ( const [index, u] of users.entries()) {
@@ -37,11 +38,7 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
 
   const { data } = await userDataModel.findById(user.data).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!data) return res.status(500).json(ERRORMSG.CTD);
-  const [name, password] = inCreds.split(process.env.CRED_SEPARATOR);
-
-  const userToken = req.ciphers.tokenGen(name, password);
-  const [update, updateKey] = req.ciphers.exportKey(user.updateKey, name);
-
+  
   const userUpdating = req.app.locals.waitingUsers?.[user._id];
   if (userUpdating) {
     //handle prior login attempt
@@ -50,26 +47,28 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
       oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
       clearTimeout(expire);
     }
-    const rUserData = req.ciphers.revealUserData(name, { updateArg: update, data });
-    const userData = req.ciphers.obscureUserData(rUserData, name, update, true);
+    const rUserData = req.ciphers.revealUserData(inCreds, user, data);
+    const rUpdateKey = req.ciphers.revealUpdateKey(inCreds, user);
+    const { iv, userData, updateKey } = req.ciphers.exportUserData(rUpdateKey, rUserData);
     const expireId = setTimeout((req, res, id) => {
       res.status(403).json(ERRORMSG.EXPIREDLOGIN);
       delete req.app.locals.waitingUsers[id].login;
     }, 1000 * 10, req, res, user._id);
     req.app.locals.waitingUsers[user._id].login = {
       res, 
-      payload: {
-        token: userToken, 
+      payload: { 
+        iv,
+        updateKey,
         userData, 
-        updateKey
       },
       expireId
     };
   }
   else {
-    const rUserData = req.ciphers.revealUserData(name, { updateArg: update, data });
-    const userData = req.ciphers.obscureUserData(rUserData, name, update, true);
-    return loginOk(res, { token: userToken, userData, updateKey });
+    const rUserData = req.ciphers.revealUserData(inCreds, user, data);
+    const rUpdateKey = req.ciphers.revealUpdateKey(inCreds, user);
+    const { iv, userData, updateKey } = req.ciphers.exportUserData(rUpdateKey, rUserData);
+    return loginOk(res, { iv, updateKey, userData });
   }
 };
 router.post("/login", (req, res, next) => {

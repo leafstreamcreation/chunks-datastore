@@ -69,17 +69,17 @@ class UserModel {
     const userArray = [];
     users.forEach(({ name, password }) => {
         const credentials = name + "/-/" + password;
-        userArray.push({ _id: this.currentId, credentials, updateKey: 1, data: this.currentId });
+        userArray.push({ _id: this.currentId, credentials, iv: 1, updateKey: 1, data: this.currentId });
         this.currentId += 1;
     });
     this.users = keyBy(userArray, "_id");
   }
 
-  create({ credentials, data, updateKey = 1 }) {
+  create({ credentials, data, updateKey = 1, iv = 1 }) {
       for (const { credentials: oldCredentials } of Object.values(this.users)) {
         if ( oldCredentials === credentials) return Promise.resolve(null);
       }
-      const newUser = { _id: this.currentId, credentials, updateKey , data };
+      const newUser = { _id: this.currentId, credentials, updateKey, iv, data };
       this.users[`${this.currentId}`] = newUser;
       this.currentId += 1;
     return Promise.resolve({ ...newUser });
@@ -156,18 +156,18 @@ const MockDB = (seed = {}) => {
   return { stateModel, invitationModel, userModel, userDataModel };
 };
 
-const MockReq = ({ ticket, name, password, update }, user = {}, updateKey = null, waitlist = {}) => {
+const MockReq = ({ iv, ticket, name, password, update }, user = {}, updateKey = null, waitlist = {}) => {
   const { _id, userModel, userDataModel } = user;  
   const req = { 
         headers: {},
         ciphers: {
-            obscureUserData: jest.fn((w,x,y,z) => w),
-            revealUserData: jest.fn((x, { data }) => data),
-            tokenGen: jest.fn((x,y) => { return {name: x, credentials: x + "/-/" + y}; }),
-            revealToken: jest.fn((x,y) => { return {name: x, credentials: x + "/-/" + y}; }),
-            revealInbound: jest.fn(x => x),
+            obscureUserData: jest.fn((w,x,y) => w),
+            revealUserData: jest.fn((x,y, data) => data),
+            revealInbound: jest.fn((x,y) => x),
+            revealUpdateKey: jest.fn((x,y) => y.updateKey),
             credentials: jest.fn((x,y) => Promise.resolve(x + (y ? "/-/" + y : ""))),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
+            exportUserData: jest.fn((x,y) => { return { iv: 1, updateKey: x, userData: y }; }),
             revealKey: jest.fn((x,y) => parseInt(x)),
             updateKeyGen: jest.fn((x,y) => { return { out:`${x}`, local:`${x}` }; }),
             matchUpdateKey: jest.fn((x,y,z) => {
@@ -178,7 +178,8 @@ const MockReq = ({ ticket, name, password, update }, user = {}, updateKey = null
         },
         app: { locals: { waitingUsers: waitlist }}
     };
-    if (name || password || ticket || update) req.body = {};
+    if (iv || name || password || ticket || update) req.body = {};
+    if (iv) req.body.iv = iv;
     if (ticket) req.body.ticket = ticket;
     if (name && password) req.body.credentials = name + "/-/" + password;
     else if (password) req.body.password = password;

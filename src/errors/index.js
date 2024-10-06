@@ -1,6 +1,7 @@
 module.exports = {
   ERRORMSG: {
     CTD: { msg: "Unexpected error; investigation required" },
+    MISSINGIV: { msg: "missing iv"},
     MISSINGCREDENTIALS: { msg: "missing credentials" },
     MISSINGTICKET: { msg: "missing ticket" },
     MISSINGPASSWORD: { msg: "missing password" },

@@ -48,19 +48,6 @@ describe("Spec for crypto functions", () => {
         expect(result).toEqual(startingData);
     });
     
-    test("tokenGen and revealToken reverse each other", () => {
-        const req = {};
-        const next = () => {};
-        addCryptoFunctions(req, null, next);
-        const mutator = x => x;
-
-        const name = "Derek";
-        const { name: cName, credentials: cCred } = req.ciphers.tokenGen(name, null, mutator);
-        const tokenOut = req.ciphers.revealToken(cName, cCred);
-        expect(tokenOut.name).toBe(name);
-
-    });
-    
     test("revealKey reveals outward update key", () => {
         const req = {};
         const next = () => {};

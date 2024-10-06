@@ -2,11 +2,13 @@ require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { loginHandler: login } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
+const { CIPHERS } = require("../src/routes/middleware/cipherEnums");
 const SEPARATOR = process.env.CRED_SEPARATOR;
 
 describe("Spec for login route", () => {
   
-    test("login with valid credentials returns userId, json data, and nextUpdateKey", async () => {
+    test("login with valid credentials returns json data, and nextUpdateKey", async () => {
+        const iv = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -14,27 +16,26 @@ describe("Spec for login route", () => {
             { name, password }
         ];
         const instance =  MockDB({ users });
-        const req = MockReq({ name, password });
+        const req = MockReq({ iv, name, password });
         const res = MockRes();
         
         const u2Creds = name + SEPARATOR + password
-        const user2 = { _id: 2, credentials: u2Creds, data: 2, updateKey: 1 };
+        const user2 = { _id: 2, credentials: u2Creds, data: 2, updateKey: 1, iv: 1 };
         expect(instance.userModel.users["2"]).toEqual(user2);
         expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], []]);
         expect(Object.values(instance.userModel.users).length).toBe(2);
     
         await login(req, res, null, instance);
-        const loginResponse = { token: { name, credentials: user2.credentials }, userData: ["{}", [], []], updateKey: 1 };
+        const loginResponse = { iv: 1, updateKey: 1, userData: ["{}", [], []] };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(u2Creds);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(u2Creds, CIPHERS.CREDENTIALS);
         expect(req.ciphers.compare).toHaveBeenCalledWith(u2Creds, instance.userModel.users["1"].credentials);
         expect(req.ciphers.compare).toHaveBeenCalledWith(u2Creds, instance.userModel.users["2"].credentials);
-        expect(req.ciphers.tokenGen).toHaveBeenCalledWith(name, password);
-        expect(req.ciphers.exportKey).toHaveBeenCalledWith(instance.userModel.users["2"].updateKey, name);
-        expect(req.ciphers.revealUserData).toHaveBeenCalledWith(name, { updateArg: instance.userModel.users["2"].updateKey, data: instance.userDataModel.entries["2"].data });
-        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], []], name, 1, true);
+        expect(req.ciphers.revealUserData).toHaveBeenCalledWith(u2Creds, user2, instance.userDataModel.entries["2"].data);
+        expect(req.ciphers.revealUpdateKey).toHaveBeenCalledWith(u2Creds, user2);
+        expect(req.ciphers.exportUserData).toHaveBeenCalledWith(1, ["{}", [], []]);
     });
 
     test("login with invalid credentials returns errors", async () => {
@@ -78,7 +79,7 @@ describe("Spec for login route", () => {
 
         expect("login" in req.app.locals.waitingUsers["2"]).toBe(true);
         expect(req.app.locals.waitingUsers["2"].login.res).toEqual(res);
-        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ token:{ name, credentials: u2Creds }, userData: ["{}", [], []], updateKey: 1 });
+        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ iv: 1, updateKey: 1, userData: ["{}", [], []] });
         expect("expireId" in req.app.locals.waitingUsers["2"].login).toBe(true);
 
         clearInterval(req.app.locals.waitingUsers["2"].login.expireId);
