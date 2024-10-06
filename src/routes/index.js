@@ -80,7 +80,7 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
   const { ticket:cTicket, credentials:cCred } = req.body;
   if (!cCred) return res.status(400).json(ERRORMSG.MISSINGCREDENTIALS);
   if (!cTicket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
-  const ticket = req.ciphers.revealInbound(cTicket);
+  const ticket = req.ciphers.revealInbound(cTicket, CIPHERS.TICKET);
   let invitation = null;
   const pending = await invitationModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   for ( const i of pending) {
@@ -91,23 +91,22 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
     }
   }
   if (!invitation) return res.status(403).json(ERRORMSG.INVALIDTICKET);
-  const inCreds = req.ciphers.revealInbound(cCred);
+  const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS);
   const users = await userModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   for ( const u of users) {
     const match = await req.ciphers.compare(inCreds, u.credentials);
     if (match) return res.status(403).json({ ticketRefund: cTicket });
   }
-  const [name, password] = inCreds.split(process.env.CRED_SEPARATOR);
-  const token = req.ciphers.tokenGen(name, password);
-  const credentials = await req.ciphers.credentials(name, password).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const credentials = await req.ciphers.credentials(inCreds).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const initialIV = await req.ciphers.generateIV();
   const initialUserData = ["{}", [], []];
-  const data = req.ciphers.obscureUserData(initialUserData, name, 1);
+  const data = req.ciphers.obscureUserData(inCreds, initialUserData);
+  const cUpdateKey = req.ciphers.obscureUpdateKey(inCreds, 1);
   const newUserData = await userDataModel.create({ data }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  const key = req.ciphers.updateKeyGen(1, name);
-  await userModel.create({ credentials, data: newUserData._id, updateKey: key.local }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  await userModel.create({ credentials, data: newUserData._id, iv: initialIV, updateKey: cUpdateKey }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  const userData = req.ciphers.obscureUserData(initialUserData, name, 1, true);
-  return res.status(200).json({ token, userData, updateKey: key.out });
+  const { iv, userData, updateKey } = req.ciphers.exportUserData(1, initialUserData);
+  return res.status(200).json({ iv, userData, updateKey });
 };
 router.post("/signup", (req, res, next) => {
   signupHandler(req, res, next, { userModel: User, userDataModel: UserData, invitationModel: Invitation });

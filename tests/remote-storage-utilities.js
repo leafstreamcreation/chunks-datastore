@@ -161,15 +161,16 @@ const MockReq = ({ iv, ticket, name, password, update }, user = {}, updateKey = 
   const req = { 
         headers: {},
         ciphers: {
-            obscureUserData: jest.fn((w,x,y) => w),
-            revealUserData: jest.fn((x,y, data) => data),
             revealInbound: jest.fn((x,y) => x),
-            revealUpdateKey: jest.fn((x,y) => y.updateKey),
-            credentials: jest.fn((x,y) => Promise.resolve(x + (y ? "/-/" + y : ""))),
+            credentials: jest.fn((x) => Promise.resolve(x)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
+            generateIV: jest.fn(() => 1),
+            obscureUserData: jest.fn((w,x) => x),
+            obscureUpdateKey: jest.fn((w,x) => x),
             exportUserData: jest.fn((x,y) => { return { iv: 1, updateKey: x, userData: y }; }),
+            revealUserData: jest.fn((x,y, data) => data),
+            revealUpdateKey: jest.fn((x,y) => y.updateKey),
             revealKey: jest.fn((x,y) => parseInt(x)),
-            updateKeyGen: jest.fn((x,y) => { return { out:`${x}`, local:`${x}` }; }),
             matchUpdateKey: jest.fn((x,y,z) => {
               const yI = parseInt(y);
               return x === yI;

@@ -9,9 +9,8 @@ module.exports = (req, res, next) => {
   const { iv } = req.body;
   if (!iv) return res.status(400).json(ERRORMSG.MISSINGIV);
 
-  const credentials = async (name, password) => {
+  const credentials = async (creds) => {
     const salt = await bcrypt.genSalt(saltRounds);
-    const creds = name + (password ? process.env.CRED_SEPARATOR + password : "");
     return bcrypt.hash(creds, salt);
   };
   
@@ -26,9 +25,13 @@ module.exports = (req, res, next) => {
     // const decData = CryptoJS.enc.Base64.parse(cString).toString(CryptoJS.enc.Utf8);
     // const bytes = CryptoJS.AES.decrypt(decData, `${process.env.CLIENT_SIGNATURE}`).toString(CryptoJS.enc.Utf8);
     // return (!bytes || bytes === "") ? "" : JSON.parse(bytes);
-  }
+  };
+
+  const generateIV = () => {
+    //implement
+  };
   
-  const obscureUserData = (userData, name, updateKey) => {
+  const obscureUserData = (creds, userData) => {
     //replace with webcrypto
 
     // const key = `${name}${outbound ? process.env.OUTBOUND_ACTIVITIES : process.env.APP_SIGNATURE}${updateKey}`;
@@ -38,17 +41,14 @@ module.exports = (req, res, next) => {
     // const encData = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(encJson.toString()));
     // return encData;
   };
+
+  const obscureUpdateKey = (creds, updateKey) => {
+
+  };
   
   const revealKey = (cKeyIn, name, local = false) => {
     const literal = CryptoJS.AES.decrypt(cKeyIn, name + `${process.env.APP_SIGNATURE}${local ? process.env.LOCAL_KEY : process.env.OUTBOUND_KEY}`).toString(CryptoJS.enc.Utf8);
     return parseInt(literal);
-  };
-  
-  const updateKeyGen = (literal, name) => {
-    const litStr = `${literal}`;
-    const out = CryptoJS.AES.encrypt(litStr, name + `${process.env.APP_SIGNATURE + process.env.OUTBOUND_KEY}`).toString();
-    const local = CryptoJS.AES.encrypt(litStr, name + `${process.env.APP_SIGNATURE + process.env.LOCAL_KEY}`).toString();
-    return { out, local };
   };
   
   const matchUpdateKey = (keyIn, cuKey, name) => {
@@ -75,9 +75,11 @@ module.exports = (req, res, next) => {
   };
 
   req.ciphers = { 
-    obscureUserData, 
-    revealUserData,
+    generateIV,
+    obscureUserData,
+    obscureUpdateKey,
     exportUserData,
+    revealUserData,
     revealUpdateKey,
     revealInbound, 
     credentials, 
