@@ -19,7 +19,7 @@ describe("Spec for login route", () => {
         const req = MockReq({ iv, name, password });
         const res = MockRes();
         
-        const u2Creds = name + SEPARATOR + password
+        const u2Creds = name + SEPARATOR + password;
         const user2 = { _id: 2, credentials: u2Creds, data: 2, updateKey: 1, iv: 1 };
         expect(instance.userModel.users["2"]).toEqual(user2);
         expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], []]);
@@ -70,7 +70,7 @@ describe("Spec for login route", () => {
         const instance =  MockDB({ users });
 
         const u2Creds = name + SEPARATOR + password
-        const req = MockReq({ name, password }, {}, null, { "2": {} });
+        const req = MockReq({ name, password }, { "2": {} });
         const res = MockRes();
 
         expect("login" in req.app.locals.waitingUsers["2"]).toBe(false);

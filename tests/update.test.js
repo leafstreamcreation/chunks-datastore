@@ -2,16 +2,20 @@ require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { updateHandler } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
+const { CIPHERS } = require("../src/routes/middleware/cipherEnums");
+const SEPARATOR = process.env.CRED_SEPARATOR;
 
 describe("Spec for update route", () => {
   
-    test("update (signed in) with valid updateKey and update writes to user data, clears waitlist", async () => {
+    test("authenticated update request with payload and valid updateKey writes new data, empties the login waitlist, and server stops listening for updates for authenticated user", async () => {
+        const iv = 1;
         const password = "foo";
         const name = "user2";
         const users = [
             { name: "user1", password },
             { name, password }
         ];
+        const credentials = name + SEPARATOR + password;
         const instance =  MockDB({ users });
 
         const update = [
@@ -19,51 +23,59 @@ describe("Spec for update route", () => {
         ];
 
         const loginRes = MockRes();
-        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
+        const req = MockReq({ iv, name, password, updateKey: 1, update }, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
         const res = MockRes();
         
+        const user2 = instance.userModel.users["2"];
         const user2Data = ["{}", [], []];
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         expect(instance.userDataModel.entries["2"].data).toEqual(user2Data);
         expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: {}, expireId: 1 });
-        const user2Init = { ...instance.userModel.users["2"], dataKey:2, updateArg: 1 };
-        user2Init.data = ["{}", [], []];
-        user2Init.push = req.user.push;
         
         await updateHandler(req, res, null, instance);
-        
-        const updateResult = { updateKey: '2' };
+        const updateResult = { iv: 1, updateKey: 2 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        const reqUser = { ...user2Init, name, token: { name, credentials: user2Init.credentials } };
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, true);
-        expect(req.ciphers.revealUserData).toHaveBeenCalledWith(name, reqUser);
-        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]], name, parseInt(instance.userModel.users["2"].updateKey));
-        expect(req.user.push).toHaveBeenCalledWith(["{}", [], []], update);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, CIPHERS.CREDENTIALS);
+        expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["1"].credentials);
+        expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["2"].credentials);
+        expect(req.ciphers.compare).toHaveBeenCalledTimes(2);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(1, CIPHERS.UPDATEKEY);
+        expect(req.ciphers.revealUpdateKey).toHaveBeenCalledWith(credentials, user2);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, CIPHERS.DATA);
+        expect(req.ciphers.revealUserData).toHaveBeenCalledWith(credentials, user2, user2Data);
+        expect(req.ciphers.generateIV).toHaveBeenCalled();
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, 1, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
+        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, 1, 2);
+
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
-        expect(instance.userModel.users["2"].updateKey).toBe('2');
+        expect(instance.userModel.users["2"].updateKey).toBe(2);
         expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], [update[0].val]]);
         
-        const mockLoginPayload = { token: reqUser.token, userData: ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]], updateKey: 2 };
-        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]], name, parseInt(instance.userModel.users["2"].updateKey), true);
+        const mockLoginPayload = { iv:1, updateKey: 2, userData: ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]] };
+        expect(req.ciphers.exportUserData).toHaveBeenCalledWith(2, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
         expect(loginRes.status).toHaveBeenCalledWith(200);
         expect(loginRes.json).toHaveBeenCalledWith(mockLoginPayload);
 
     });
   
-    test("update (signed in) without body blocks logins", async () => {
+    test("initial authenticated update request (with valid update key and no update payload) blocks logins for authenticated user; server begins listening for the payload update", async () => {
+        const iv = 1;
         const password = "foo";
         const name = "user2";
         const users = [
             { name: "user1", password },
             { name, password }
         ];
+        const credentials = name + SEPARATOR + password;
         const instance =  MockDB({ users });
 
-        const req = MockReq({}, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, {});
+        const req = MockReq({ iv, name, password, updateKey: 1 }, {});
         const res = MockRes();
+
+        const user2 = instance.userModel.users["2"];
         
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
@@ -80,12 +92,21 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, CIPHERS.CREDENTIALS);
+        expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["1"].credentials);
+        expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["2"].credentials);
+        expect(req.ciphers.compare).toHaveBeenCalledTimes(2);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(1, CIPHERS.UPDATEKEY);
+        expect(req.ciphers.revealUpdateKey).toHaveBeenCalledWith(credentials, user2);
+
         expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
         expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
-        expect(req.user.push).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUpdateKey).not.toHaveBeenCalled();
+        expect(req.ciphers.exportUserData).not.toHaveBeenCalled();
     });
 
-    test("update (signed in) without body while db listening returns cache update", async () => {
+    test("authenticated update request without payload while db is listening is deferred", async () => {
+        const iv = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -94,7 +115,7 @@ describe("Spec for update route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({}, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, { "2": {}});
+        const req = MockReq({ iv, name, password, updateKey: 1 }, { "2": {}});
         const res = MockRes();
         
         expect("2" in req.app.locals.waitingUsers).toBe(true);
@@ -108,10 +129,12 @@ describe("Spec for update route", () => {
 
         expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
         expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
-        expect(req.user.push).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUpdateKey).not.toHaveBeenCalled();
+        expect(req.ciphers.exportUserData).not.toHaveBeenCalled();
     });
 
     test("update (signed in) with body while db not listening returns cache update", async () => {
+        const iv = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -124,7 +147,7 @@ describe("Spec for update route", () => {
             { op: 3, val: { _id: 1, name: "squashing", history: [{}], group: 0 }}
         ];
 
-        const req = MockReq({ update }, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 1, {});
+        const req = MockReq({ iv, name, password, updateKey: 1, update });
         const res = MockRes();
         
         expect("2" in req.app.locals.waitingUsers).toBe(false);
@@ -138,10 +161,12 @@ describe("Spec for update route", () => {
 
         expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
         expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
-        expect(req.user.push).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUpdateKey).not.toHaveBeenCalled();
+        expect(req.ciphers.exportUserData).not.toHaveBeenCalled();
     });
 
     test("update (signed in) with invalid updateKey returns self destruct", async () => {
+        const iv = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -150,7 +175,7 @@ describe("Spec for update route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({}, { _id: 2, userModel: instance.userModel, userDataModel: instance.userDataModel }, 2, {});
+        const req = MockReq({ iv, name, password, updateKey: 2 });
         const res = MockRes();
         
         expect(instance.userModel.users["2"].updateKey).toBe(1);
@@ -165,6 +190,7 @@ describe("Spec for update route", () => {
 
         expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
         expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
-        expect(req.user.push).not.toHaveBeenCalled();
+        expect(req.ciphers.obscureUpdateKey).not.toHaveBeenCalled();
+        expect(req.ciphers.exportUserData).not.toHaveBeenCalled();
     });
 });

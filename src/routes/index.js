@@ -144,7 +144,7 @@ router.post("/invite", (req, res, next) => {
 const updateHandler = async (req, res, next, { userModel = User, userDataModel = UserData }) => {
   const { credentials: cCred, updateKey: cUpdateKey, update: cUpdate } = req.body;
   const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS);
-  const users = await User.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const users = await userModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   let user;
   for ( const [index, u] of users.entries()) {
     const match = await req.ciphers.compare(inCreds, u.credentials);
@@ -154,7 +154,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
     }
   }
   if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
-
+  
   //ok so we have the user
   //next check the update
   const inUpdateKey = req.ciphers.revealInbound(cUpdateKey, CIPHERS.UPDATEKEY);
@@ -176,7 +176,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   if (!listeningForUpdates) return res.status(200).json({ defer: true });
 
   //there is a delivery and the server was listening for updates; process the data
-  const { data: oldData } = await UserData.findById(user.data).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const { data: oldData } = await userDataModel.findById(user.data).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
   if (!oldData) return res.status(500).json(ERRORMSG.CTD);
 
   const update = req.ciphers.revealInbound(cUpdate, CIPHERS.DATA);

@@ -5,9 +5,7 @@ const saltRounds = 13;
 
 
 module.exports = (req, res, next) => {
-
-  const { iv } = req.body;
-  if (!iv) return res.status(400).json(ERRORMSG.MISSINGIV);
+  if (!req.body && !req.body.iv) return res.status(400).json(ERRORMSG.MISSINGIV);
 
   const credentials = async (creds) => {
     const salt = await bcrypt.genSalt(saltRounds);
@@ -46,17 +44,6 @@ module.exports = (req, res, next) => {
 
   };
   
-  const revealKey = (cKeyIn, name, local = false) => {
-    const literal = CryptoJS.AES.decrypt(cKeyIn, name + `${process.env.APP_SIGNATURE}${local ? process.env.LOCAL_KEY : process.env.OUTBOUND_KEY}`).toString(CryptoJS.enc.Utf8);
-    return parseInt(literal);
-  };
-  
-  const matchUpdateKey = (keyIn, cuKey, name) => {
-    const localLiteral =  CryptoJS.AES.decrypt(cuKey, name + `${process.env.APP_SIGNATURE + process.env.LOCAL_KEY}`).toString(CryptoJS.enc.Utf8);
-    const literal = parseInt(localLiteral);
-    return keyIn === literal;
-  };
-  
   const revealUpdateKey = (credentials, user) => {
 
   };
@@ -84,9 +71,6 @@ module.exports = (req, res, next) => {
     revealInbound, 
     credentials, 
     compare,
-    revealKey,
-    updateKeyGen,
-    matchUpdateKey,
    };
   next();
 };

@@ -1,4 +1,4 @@
-const mergeUpdate = require("../src/routes/middleware/mergeUpdate");
+const mergeUpdate = require("../src/routes/mergeUpdate");
 
 const { ERRORMSG } = require("../src/errors");
 

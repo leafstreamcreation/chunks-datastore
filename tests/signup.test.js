@@ -45,8 +45,8 @@ describe("Spec for signup route", () => {
         expect(req.ciphers.compare).not.toHaveBeenCalledWith(credentials, credentials);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(credentials);
         expect(req.ciphers.generateIV).toHaveBeenCalledTimes(1);
-        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, ["{}", [], []]);
-        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, 1);
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, 1, ["{}", [], []]);
+        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, 1, 1);
         expect(req.ciphers.exportUserData).toHaveBeenCalledWith(1, ["{}", [], []]);
     });
 

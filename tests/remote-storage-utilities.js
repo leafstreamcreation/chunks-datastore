@@ -1,5 +1,4 @@
 const { keyBy } = require("lodash");
-const mergeUpdate = require("../src/routes/middleware/mergeUpdate");
 
 class StateModel {
 
@@ -156,8 +155,7 @@ const MockDB = (seed = {}) => {
   return { stateModel, invitationModel, userModel, userDataModel };
 };
 
-const MockReq = ({ iv, ticket, name, password, update }, user = {}, updateKey = null, waitlist = {}) => {
-  const { _id, userModel, userDataModel } = user;  
+const MockReq = ({ iv, ticket, name, password, updateKey, update }, waitlist = {}) => {
   const req = { 
         headers: {},
         ciphers: {
@@ -165,17 +163,12 @@ const MockReq = ({ iv, ticket, name, password, update }, user = {}, updateKey = 
             credentials: jest.fn((x) => Promise.resolve(x)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
             generateIV: jest.fn(() => 1),
-            obscureUserData: jest.fn((w,x) => x),
-            obscureUpdateKey: jest.fn((w,x) => x),
+            obscureUserData: jest.fn((w,x,y) => y),
+            obscureUpdateKey: jest.fn((w,x,y) => y),
             exportUserData: jest.fn((x,y) => { return { iv: 1, updateKey: x, userData: y }; }),
             revealUserData: jest.fn((x,y, data) => data),
             revealUpdateKey: jest.fn((x,y) => y.updateKey),
             revealKey: jest.fn((x,y) => parseInt(x)),
-            matchUpdateKey: jest.fn((x,y,z) => {
-              const yI = parseInt(y);
-              return x === yI;
-            }),
-            exportKey: jest.fn((x,y) => [parseInt(x), x]),
         },
         app: { locals: { waitingUsers: waitlist }}
     };
@@ -184,22 +177,8 @@ const MockReq = ({ iv, ticket, name, password, update }, user = {}, updateKey = 
     if (ticket) req.body.ticket = ticket;
     if (name && password) req.body.credentials = name + "/-/" + password;
     else if (password) req.body.password = password;
+    if (updateKey) req.body.updateKey = updateKey;
     if (update) req.body.update = update;
-    if (_id && userModel) { 
-      req.user = { ...userModel.users[`${_id}`] };
-      const c = userModel.users[`${_id}`].credentials;
-      const cs = c.split("/-/");
-      const t = { name: cs[0], credentials: c };
-      req.user.push = jest.fn((x, y) => mergeUpdate(x, y));
-      req.headers.name = name;
-      req.headers.credentials = req.user.credentials;
-      req.user.token = t;
-      req.user.dataKey = req.user.data;
-      req.user.name = t.name;
-      req.user.data = userDataModel.entries[`${_id}`].data;
-      req.user.updateArg = updateKey;
-    }
-    if (updateKey !== null) req.headers.update = `${updateKey}`;
     return req;
 };
 
