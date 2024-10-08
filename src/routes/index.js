@@ -8,7 +8,6 @@ const UserData = require("../models/UserData.model");
 
 const ciphers = require("./middleware/ciphers");
 router.use(ciphers);
-const { CIPHERS } = require("./middleware/cipherEnums");
 
 const mergeUpdate = require("./mergeUpdate");
 const { ERRORMSG } = require("../errors");
@@ -28,7 +27,7 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
   const { credentials:cCred } = req.body;
   
   if (!cCred) return sendMessage(req, res, 400, ERRORMSG.MISSINGCREDENTIALS);
-  const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS); 
+  const inCreds = req.ciphers.revealInbound(cCred, process.env.CREDENTIAL_KEY); 
   const users = await userModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   let user;
   for ( const [index, u] of users.entries()) {
@@ -84,7 +83,7 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
   const { ticket:cTicket, credentials:cCred } = req.body;
   if (!cCred) return sendMessage(req, res, 400, ERRORMSG.MISSINGCREDENTIALS);
   if (!cTicket) return sendMessage(req, res, 400, ERRORMSG.MISSINGTICKET);
-  const ticket = req.ciphers.revealInbound(cTicket, CIPHERS.TICKET);
+  const ticket = req.ciphers.revealInbound(cTicket, process.env.TICKET_KEY);
   let invitation = null;
   const pending = await invitationModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   for ( const i of pending) {
@@ -95,7 +94,7 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
     }
   }
   if (!invitation) return sendMessage(req, res, 403, ERRORMSG.INVALIDTICKET);
-  const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS);
+  const inCreds = req.ciphers.revealInbound(cCred, process.env.CREDENTIAL_KEY);
   const users = await userModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   for ( const u of users) {
     const match = await req.ciphers.compare(inCreds, u.credentials);
@@ -122,11 +121,11 @@ const inviteHandler = async (req, res, next, { stateModel = State, invitationMod
   if (!cPassword) return sendMessage(req, res, 400, ERRORMSG.MISSINGPASSWORD);
 
   const state = await stateModel.findOne().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
-  const password = req.ciphers.revealInbound(cPassword, CIPHERS.CREDENTIALS);
+  const password = req.ciphers.revealInbound(cPassword, process.env.PASSWORD_KEY);
   const match = await req.ciphers.compare(password, state.adminHash).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   if (!match) return sendMessage(req, res, 403, ERRORMSG.INVALIDCREDENTIALS);
 
-  const ticket = req.ciphers.revealInbound(cTicket, CIPHERS.TICKET);
+  const ticket = req.ciphers.revealInbound(cTicket, process.env.TICKET_KEY);
   let invitation = null;
   const pending = await invitationModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   for ( const i of pending) {
@@ -147,7 +146,9 @@ router.post("/invite", (req, res, next) => {
 
 const updateHandler = async (req, res, next, { userModel = User, userDataModel = UserData }) => {
   const { credentials: cCred, updateKey: cUpdateKey, update: cUpdate } = req.body;
-  const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS);
+  if (!cCred) return sendMessage(req, res, 400, ERRORMSG.MISSINGCREDENTIALS);
+  if (!cUpdateKey) return sendMessage(req, res, 400, ERRORMSG.MISSINGKEY);
+  const inCreds = req.ciphers.revealInbound(cCred, process.env.CREDENTIAL_KEY);
   const users = await userModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   let user;
   for ( const [index, u] of users.entries()) {
@@ -159,7 +160,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   }
   if (!user) return sendMessage(req, res, 403, ERRORMSG.INVALIDCREDENTIALS);
   
-  const inUpdateKey = req.ciphers.revealInbound(cUpdateKey, CIPHERS.UPDATEKEY);
+  const inUpdateKey = req.ciphers.revealInbound(cUpdateKey, process.env.UPDATE_KEY);
   const rUpdateKey = req.ciphers.revealUpdateKey(inCreds, user);
   if (inUpdateKey !== rUpdateKey) return sendMessage(req, res, 403, "selfDestruct");
 
@@ -178,7 +179,7 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   const { data: oldData } = await userDataModel.findById(user.data).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   if (!oldData) return sendMessage(req, res, 500, ERRORMSG.CTD);
 
-  const update = req.ciphers.revealInbound(cUpdate, CIPHERS.DATA);
+  const update = req.ciphers.revealInbound(cUpdate, process.env.DATA_KEY);
   const rUserData = req.ciphers.revealUserData(inCreds, user, oldData);
   const newUserData = mergeUpdate(rUserData, update);
   const newUpdateKey = rUpdateKey + 1;

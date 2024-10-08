@@ -2,7 +2,6 @@ require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { inviteHandler: invite } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
-const { CIPHERS } = require("../src/routes/middleware/cipherEnums");
 
 describe("Spec for invite route", () => {
   
@@ -37,8 +36,8 @@ describe("Spec for invite route", () => {
         const deviation = Math.abs(1 - (expire.getTime() / endTime));
         expect(deviation).toBeCloseTo(0, 0);
 
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(password, CIPHERS.CREDENTIALS);
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(ticket, CIPHERS.TICKET);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(password, process.env.PASSWORD_KEY);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(ticket, process.env.TICKET_KEY);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(ticket);
     });
 

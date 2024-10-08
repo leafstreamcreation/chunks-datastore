@@ -5,14 +5,53 @@ const UserData = require("../src/models/UserData.model");
 const addCryptoFunctions = require("../src/routes/middleware/ciphers");
 const { ERRORMSG } = require("../src/errors");
 
+const req = { body: { iv: 1, salt: 1 }};
+const next = () => {};
+addCryptoFunctions(req, null, next);
 
 describe("Spec for crypto functions", () => {
+
+    test("inbound request without iv and salt returns unsecure request message", () => {
+        const unsecureReq = {};
+        const standardRes = { 
+            status: jest.fn((s) => standardRes),
+            json: jest.fn((j) => standardRes),
+        }
+        addCryptoFunctions(unsecureReq, standardRes, next);
+        expect(standardRes.status).toHaveBeenCalledWith(400);
+        expect(standardRes.json).toHaveBeenCalledWith({ message: ERRORMSG.UNSECUREREQUEST });
+    });
+    
+    test("generateEntropy provides an IV and salt", () => {
+        const entropy = req.ciphers.generateEntropy();
+        expect(entropy).toHaveProperty('iv');
+        expect(entropy).toHaveProperty('salt');
+        expect(entropy.iv).toBeDefined();
+        expect(entropy.salt).toBeDefined();
+    });
+
+    test("obscureUserData uses AES GCM", () => {
+
+    });
+
+    test("obscureUpdateKey uses AES GCM", () => {
+
+    });
+
+    test("exportUserData uses AES GCM", () => {
+
+    });
+
+    test("exportMessage uses AES GCM", () => {
+
+    });
+
+    test("revealInbound uses AES GCM", () => {
+
+    });
     
     test("revealUserData and obscureUserData reverse each other", async () => {
         const x = await require("../src/db");
-        const req = {};
-        const next = () => {};
-        addCryptoFunctions(req, null, next);
 
         const emptyData = req.ciphers.obscureUserData([], "Test1", 1);
         const newEmptyData = await UserData.create({ data: emptyData });
@@ -48,43 +87,13 @@ describe("Spec for crypto functions", () => {
         expect(result).toEqual(startingData);
     });
     
-    test("revealKey reveals outward update key", () => {
-        const req = {};
-        const next = () => {};
-        addCryptoFunctions(req, null, next);
+    test("revealUpdateKey and obscureUpdateKey reverse each other", async () => {
+        const x = await require("../src/db");
 
         const name = "Derek";
         const literal = 1;
         const { out } = req.ciphers.updateKeyGen(literal, name);
         const value = req.ciphers.revealKey(out, name);
-        expect(value).toBe(1);
-    });
-    
-    test("matchUpdateKey compares for equality", () => {
-        const req = {};
-        const next = () => {};
-        addCryptoFunctions(req, null, next);
-
-        const name = "Derek";
-        const literal = 1;
-        const { local } = req.ciphers.updateKeyGen(literal, name);
-        const goodRes = req.ciphers.matchUpdateKey(1, local, name);
-        expect(goodRes).toBe(true);
-        const badRes = req.ciphers.matchUpdateKey(2, local, name);
-        expect(badRes).toBe(false);
-    });
-    
-    test("exportKey converts a local key to an outbound key", () => {
-        const req = {};
-        const next = () => {};
-        addCryptoFunctions(req, null, next);
-
-        const name = "Derek";
-        const literal = 1;
-        const key = req.ciphers.updateKeyGen(literal, name);
-        const [ value, outKey] = req.ciphers.exportKey(key.local, name);
-        const out = req.ciphers.revealKey(outKey, name);
-        expect(out).toBe(1);
         expect(value).toBe(1);
     });
 });

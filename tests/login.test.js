@@ -2,7 +2,6 @@ require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { loginHandler: login } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
-const { CIPHERS } = require("../src/routes/middleware/cipherEnums");
 const SEPARATOR = process.env.CRED_SEPARATOR;
 
 describe("Spec for login route", () => {
@@ -31,7 +30,7 @@ describe("Spec for login route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(u2Creds, CIPHERS.CREDENTIALS);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(u2Creds, process.env.CREDENTIAL_KEY);
         expect(req.ciphers.compare).toHaveBeenCalledWith(u2Creds, instance.userModel.users["1"].credentials);
         expect(req.ciphers.compare).toHaveBeenCalledWith(u2Creds, instance.userModel.users["2"].credentials);
         expect(req.ciphers.revealUserData).toHaveBeenCalledWith(u2Creds, user2, instance.userDataModel.entries["2"].data);

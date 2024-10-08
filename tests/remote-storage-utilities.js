@@ -169,7 +169,6 @@ const MockReq = ({ iv, salt, ticket, name, password, updateKey, update }, waitli
             exportMessage: jest.fn((x,y) => { return { iv: 1, salt: 1, message: x }; }),
             revealUserData: jest.fn((x,y, data) => data),
             revealUpdateKey: jest.fn((x,y) => y.updateKey),
-            revealKey: jest.fn((x,y) => parseInt(x)),
         },
         app: { locals: { waitingUsers: waitlist }}
     };

@@ -1,11 +1,10 @@
 const bcrypt = require("bcryptjs");
 const { ERRORMSG } = require("../../errors");
-const { CIPHERS } = require("./cipherEnums");
 const saltRounds = 13;
 
 
 module.exports = (req, res, next) => {
-  if (!req.body || !req.body.iv || !req.body.salt) return res.status(400).json(ERRORMSG.MISSINGIV);
+  if (!req.body || !req.body.iv || !req.body.salt) return res.status(400).json({ message: ERRORMSG.UNSECUREREQUEST });
 
   const credentials = async (creds) => {
     const salt = await bcrypt.genSalt(saltRounds);
@@ -16,7 +15,7 @@ module.exports = (req, res, next) => {
     return bcrypt.compare(pass, hash);
   };
   
-  const revealInbound = (cString, keyType) => {
+  const revealInbound = async (cString, keyType) => {
     //replace with webcrypto 
 
     // if (!update) return CryptoJS.AES.decrypt(cString, `${process.env.CLIENT_SIGNATURE}`).toString(CryptoJS.enc.Utf8);
@@ -29,7 +28,7 @@ module.exports = (req, res, next) => {
     //implement
   };
   
-  const obscureUserData = (creds, entropy, userData) => {
+  const obscureUserData = async (creds, entropy, userData) => {
     //replace with webcrypto
 
     // const key = `${name}${outbound ? process.env.OUTBOUND_ACTIVITIES : process.env.APP_SIGNATURE}${updateKey}`;
@@ -40,15 +39,15 @@ module.exports = (req, res, next) => {
     // return encData;
   };
 
-  const obscureUpdateKey = (creds, entropy, updateKey) => {
+  const obscureUpdateKey = async (creds, entropy, updateKey) => {
 
   };
   
-  const revealUpdateKey = (credentials, user) => {
+  const revealUpdateKey = async (credentials, user) => {
 
   };
 
-  const revealUserData = (credentials, user, data) => {
+  const revealUserData = async (credentials, user, data) => {
     //replace with webcrypto
 
     // const key = `${name}${process.env.APP_SIGNATURE}${user.updateArg}`;
@@ -57,11 +56,11 @@ module.exports = (req, res, next) => {
     // return (!bytes || bytes === "") ? "" : JSON.parse(bytes);
   };
 
-  const exportUserData = (updateKey, data) => {
+  const exportUserData = async (updateKey, data) => {
 
   };
 
-  const exportMessage = (message, details) => {
+  const exportMessage = async (message, details) => {
     //return a stringified JSON object with a message field and details field
   };
 

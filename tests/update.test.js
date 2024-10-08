@@ -2,7 +2,6 @@ require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { updateHandler } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
-const { CIPHERS } = require("../src/routes/middleware/cipherEnums");
 const SEPARATOR = process.env.CRED_SEPARATOR;
 
 describe("Spec for update route", () => {
@@ -38,13 +37,13 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, CIPHERS.CREDENTIALS);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, process.env.CREDENTIAL_KEY);
         expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["1"].credentials);
         expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["2"].credentials);
         expect(req.ciphers.compare).toHaveBeenCalledTimes(2);
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(1, CIPHERS.UPDATEKEY);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(1, process.env.UPDATE_KEY);
         expect(req.ciphers.revealUpdateKey).toHaveBeenCalledWith(credentials, user2);
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, CIPHERS.DATA);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, process.env.DATA_KEY);
         expect(req.ciphers.revealUserData).toHaveBeenCalledWith(credentials, user2, user2Data);
         expect(req.ciphers.generateEntropy).toHaveBeenCalled();
         expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
@@ -94,11 +93,11 @@ describe("Spec for update route", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, CIPHERS.CREDENTIALS);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, process.env.CREDENTIAL_KEY);
         expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["1"].credentials);
         expect(req.ciphers.compare).toHaveBeenCalledWith(credentials, instance.userModel.users["2"].credentials);
         expect(req.ciphers.compare).toHaveBeenCalledTimes(2);
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(1, CIPHERS.UPDATEKEY);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(1, process.env.UPDATE_KEY);
         expect(req.ciphers.revealUpdateKey).toHaveBeenCalledWith(credentials, user2);
 
         expect(req.ciphers.revealUserData).not.toHaveBeenCalled();
@@ -197,5 +196,35 @@ describe("Spec for update route", () => {
         expect(req.ciphers.obscureUserData).not.toHaveBeenCalled();
         expect(req.ciphers.obscureUpdateKey).not.toHaveBeenCalled();
         expect(req.ciphers.exportUserData).not.toHaveBeenCalled();
+    });
+
+    test("unauthenticated update requests or requests missing keys returns errors", async () => {
+        const iv = 1;
+        const salt = 1;
+        const password = "foo";
+        const name = "user2";
+        const users = [
+            { name: "user1", password },
+            { name, password }
+        ];
+        const instance =  MockDB({ users });
+
+        const noCred = MockReq({ iv, salt, name, password: null, updateKey: 1 });
+        const noCredRes = MockRes();
+        await updateHandler(noCred, noCredRes, null, instance);
+        expect(noCredRes.status).toHaveBeenCalledWith(400);
+        expect(noCredRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.MISSINGCREDENTIALS });
+
+        const noUpdateKey = MockReq({ iv, salt, name, password });
+        const noUpdateKeyRes = MockRes();
+        await updateHandler(noUpdateKey, noUpdateKeyRes, null, instance);
+        expect(noUpdateKeyRes.status).toHaveBeenCalledWith(400);
+        expect(noUpdateKeyRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.MISSINGKEY });
+
+        const badPass = MockReq({ iv, salt, name, password: "foobar", updateKey: 1 });
+        const badPassRes = MockRes();
+        await updateHandler(badPass, badPassRes, null, instance);
+        expect(badPassRes.status).toHaveBeenCalledWith(403);
+        expect(badPassRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.INVALIDCREDENTIALS });
     });
 });

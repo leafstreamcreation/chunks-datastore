@@ -1,10 +1,11 @@
 module.exports = {
   ERRORMSG: {
     CTD: "Unexpected error; investigation required",
-    MISSINGIV: "missing iv",
+    UNSECUREREQUEST: "unencrypted request",
     MISSINGCREDENTIALS: "missing credentials",
     MISSINGTICKET: "missing ticket",
     MISSINGPASSWORD: "missing password",
+    MISSINGKEY: "missing update key",
     INVALIDCREDENTIALS: "invalid credentials",
     INVALIDTICKET: "invalid ticket",
     TICKETEXISTS: "ticket already exists",

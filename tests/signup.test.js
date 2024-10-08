@@ -2,7 +2,6 @@ require("dotenv/config");
 const { MockDB, MockReq, MockRes } = require("./remote-storage-utilities");
 const { signupHandler: signup } = require("../src/routes/index");
 const { ERRORMSG } = require("../src/errors");
-const { CIPHERS } = require("../src/routes/middleware/cipherEnums");
 const SEPARATOR = process.env.CRED_SEPARATOR;
 
 describe("Spec for signup route", () => {
@@ -39,9 +38,9 @@ describe("Spec for signup route", () => {
         expect(instance.invitationModel.invitations[0]).toEqual({ _id: 1, codeHash: "WXYZ", expires });
         expect(instance.invitationModel.invitations.length).toBe(1);
 
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(ticket, CIPHERS.TICKET);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(ticket, process.env.TICKET_KEY);
         expect(req.ciphers.compare).toHaveBeenCalledWith(ticket, ticket);
-        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, CIPHERS.CREDENTIALS);
+        expect(req.ciphers.revealInbound).toHaveBeenCalledWith(credentials, process.env.CREDENTIAL_KEY);
         expect(req.ciphers.compare).toHaveBeenCalledTimes(2);
         expect(req.ciphers.compare).not.toHaveBeenCalledWith(credentials, credentials);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(credentials);
