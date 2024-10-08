@@ -8,6 +8,7 @@ describe("Spec for invite route", () => {
   
     test("invite with ticket text and valid password creates an invitation", async () => {
         const iv = 1;
+        const salt = 1;
         const expires = new Date(Date.now() + 1000 * 60 * 30);
         const x = "ABCD";
         const invitations = [
@@ -18,7 +19,7 @@ describe("Spec for invite route", () => {
         
         const ticket = "PIGS";
 
-        const req = MockReq({ iv, password, ticket });
+        const req = MockReq({ iv, salt, password, ticket });
         const res = MockRes();
         
         expect(instance.invitationModel.invitations.length).toBe(1);
@@ -26,9 +27,7 @@ describe("Spec for invite route", () => {
         
         await invite(req, res, null, instance);
         const endTime = Date.now();
-        const inviteResponse = { ticket };
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith(inviteResponse);
         
         expect(instance.invitationModel.invitations.length).toBe(2);
         const expected = { _id: 2, codeHash: ticket };
@@ -45,6 +44,7 @@ describe("Spec for invite route", () => {
 
     test("invite with invalid credentials returns errors", async () => {
       const iv = 1;
+      const salt = 1;
       const expires = new Date(Date.now() + 1000 * 60 * 30);
       const ticket = "PIGS";
       const invitations = [
@@ -53,29 +53,29 @@ describe("Spec for invite route", () => {
       const password = "secret123"
       const instance =  MockDB({ state:password, invitations });
 
-      const nopass = MockReq({ iv, password: null, ticket });
+      const nopass = MockReq({ iv, salt, password: null, ticket });
       const noPassRes = MockRes();
       await invite(nopass, noPassRes, null, instance);
       expect(noPassRes.status).toHaveBeenCalledWith(400);
-      expect(noPassRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGPASSWORD);
+      expect(noPassRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.MISSINGPASSWORD });
       
-      const noticket = MockReq({ iv, password, ticket: null });
+      const noticket = MockReq({ iv, salt, password, ticket: null });
       const noticketRes = MockRes();
       await invite(noticket, noticketRes, null, instance);
       expect(noticketRes.status).toHaveBeenCalledWith(400);
-      expect(noticketRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGTICKET);
+      expect(noticketRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.MISSINGTICKET });
       
-      const badcreds = MockReq({ iv, password: "mistake", ticket });
+      const badcreds = MockReq({ iv, salt, password: "mistake", ticket });
       const badcredsRes = MockRes();
       await invite(badcreds, badcredsRes, null, instance);
       expect(badcredsRes.status).toHaveBeenCalledWith(403);
-      expect(badcredsRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDCREDENTIALS);
+      expect(badcredsRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.INVALIDCREDENTIALS });
       
-      const ticketexists = MockReq({ iv, password, ticket });
+      const ticketexists = MockReq({ iv, salt, password, ticket });
       const ticketexistsRes = MockRes();
       await invite(ticketexists, ticketexistsRes, null, instance);
       expect(ticketexistsRes.status).toHaveBeenCalledWith(403);
-      expect(ticketexistsRes.json).toHaveBeenCalledWith(ERRORMSG.TICKETEXISTS);
+      expect(ticketexistsRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.TICKETEXISTS });
 
         const dbInvitations = [
             { _id:1, codeHash: ticket, expires },

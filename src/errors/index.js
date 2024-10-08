@@ -1,14 +1,15 @@
 module.exports = {
   ERRORMSG: {
-    CTD: { msg: "Unexpected error; investigation required" },
-    MISSINGIV: { msg: "missing iv"},
-    MISSINGCREDENTIALS: { msg: "missing credentials" },
-    MISSINGTICKET: { msg: "missing ticket" },
-    MISSINGPASSWORD: { msg: "missing password" },
-    INVALIDCREDENTIALS: { msg: "invalid credentials" },
-    INVALIDTICKET: { msg: "invalid ticket" },
-    TICKETEXISTS: { msg: "ticket already exists" },
-    EXPIREDLOGIN: { msg: "login request expired" },
+    CTD: "Unexpected error; investigation required",
+    MISSINGIV: "missing iv",
+    MISSINGCREDENTIALS: "missing credentials",
+    MISSINGTICKET: "missing ticket",
+    MISSINGPASSWORD: "missing password",
+    INVALIDCREDENTIALS: "invalid credentials",
+    INVALIDTICKET: "invalid ticket",
+    TICKETEXISTS: "ticket already exists",
+    EXPIREDLOGIN: "login request expired",
+    CREDENTIALSTAKEN: "username and password already exist",
   },
   handleErrors: (app) => {
     app.use((req, res, next) => {

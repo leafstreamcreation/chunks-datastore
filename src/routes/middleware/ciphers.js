@@ -5,7 +5,7 @@ const saltRounds = 13;
 
 
 module.exports = (req, res, next) => {
-  if (!req.body && !req.body.iv) return res.status(400).json(ERRORMSG.MISSINGIV);
+  if (!req.body || !req.body.iv || !req.body.salt) return res.status(400).json(ERRORMSG.MISSINGIV);
 
   const credentials = async (creds) => {
     const salt = await bcrypt.genSalt(saltRounds);
@@ -25,11 +25,11 @@ module.exports = (req, res, next) => {
     // return (!bytes || bytes === "") ? "" : JSON.parse(bytes);
   };
 
-  const generateIV = () => {
+  const generateEntropy = () => {
     //implement
   };
   
-  const obscureUserData = (creds, iv, userData) => {
+  const obscureUserData = (creds, entropy, userData) => {
     //replace with webcrypto
 
     // const key = `${name}${outbound ? process.env.OUTBOUND_ACTIVITIES : process.env.APP_SIGNATURE}${updateKey}`;
@@ -40,7 +40,7 @@ module.exports = (req, res, next) => {
     // return encData;
   };
 
-  const obscureUpdateKey = (creds, iv, updateKey) => {
+  const obscureUpdateKey = (creds, entropy, updateKey) => {
 
   };
   
@@ -61,11 +61,16 @@ module.exports = (req, res, next) => {
 
   };
 
+  const exportMessage = (message, details) => {
+    //return a stringified JSON object with a message field and details field
+  };
+
   req.ciphers = { 
-    generateIV,
+    generateEntropy,
     obscureUserData,
     obscureUpdateKey,
     exportUserData,
+    exportMessage,
     revealUserData,
     revealUpdateKey,
     revealInbound, 

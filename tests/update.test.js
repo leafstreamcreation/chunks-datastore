@@ -9,6 +9,7 @@ describe("Spec for update route", () => {
   
     test("authenticated update request with payload and valid updateKey writes new data, empties the login waitlist, and server stops listening for updates for authenticated user", async () => {
         const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -23,7 +24,7 @@ describe("Spec for update route", () => {
         ];
 
         const loginRes = MockRes();
-        const req = MockReq({ iv, name, password, updateKey: 1, update }, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
+        const req = MockReq({ iv, salt, name, password, updateKey: 1, update }, { "2": { login: { res: loginRes, payload: {}, expireId: 1 }, expireId: 2 } });
         const res = MockRes();
         
         const user2 = instance.userModel.users["2"];
@@ -33,7 +34,7 @@ describe("Spec for update route", () => {
         expect(req.app.locals.waitingUsers["2"].login).toEqual({ res: loginRes, payload: {}, expireId: 1 });
         
         await updateHandler(req, res, null, instance);
-        const updateResult = { iv: 1, updateKey: 2 };
+        const updateResult = { iv: 1, salt: 1, updateKey: 2 };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
@@ -45,16 +46,16 @@ describe("Spec for update route", () => {
         expect(req.ciphers.revealUpdateKey).toHaveBeenCalledWith(credentials, user2);
         expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, CIPHERS.DATA);
         expect(req.ciphers.revealUserData).toHaveBeenCalledWith(credentials, user2, user2Data);
-        expect(req.ciphers.generateIV).toHaveBeenCalled();
-        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, 1, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
-        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, 1, 2);
+        expect(req.ciphers.generateEntropy).toHaveBeenCalled();
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
+        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, 2);
 
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
         expect(instance.userModel.users["2"].updateKey).toBe(2);
         expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], [update[0].val]]);
         
-        const mockLoginPayload = { iv:1, updateKey: 2, userData: ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]] };
+        const mockLoginPayload = { iv: 1, salt: 1, updateKey: 2, userData: ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]] };
         expect(req.ciphers.exportUserData).toHaveBeenCalledWith(2, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
         expect(loginRes.status).toHaveBeenCalledWith(200);
         expect(loginRes.json).toHaveBeenCalledWith(mockLoginPayload);
@@ -63,6 +64,7 @@ describe("Spec for update route", () => {
   
     test("initial authenticated update request (with valid update key and no update payload) blocks logins for authenticated user; server begins listening for the payload update", async () => {
         const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -72,7 +74,7 @@ describe("Spec for update route", () => {
         const credentials = name + SEPARATOR + password;
         const instance =  MockDB({ users });
 
-        const req = MockReq({ iv, name, password, updateKey: 1 }, {});
+        const req = MockReq({ iv, salt, name, password, updateKey: 1 }, {});
         const res = MockRes();
 
         const user2 = instance.userModel.users["2"];
@@ -88,7 +90,7 @@ describe("Spec for update route", () => {
 
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         
-        const updateResult = { listening: true };
+        const updateResult = { iv: 1, salt: 1, message: "listening" };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
@@ -107,6 +109,7 @@ describe("Spec for update route", () => {
 
     test("authenticated update request without payload while db is listening is deferred", async () => {
         const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -115,7 +118,7 @@ describe("Spec for update route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({ iv, name, password, updateKey: 1 }, { "2": {}});
+        const req = MockReq({ iv, salt, name, password, updateKey: 1 }, { "2": {}});
         const res = MockRes();
         
         expect("2" in req.app.locals.waitingUsers).toBe(true);
@@ -123,7 +126,7 @@ describe("Spec for update route", () => {
         await updateHandler(req, res, null, instance);
         
         expect("2" in req.app.locals.waitingUsers).toBe(true);
-        const updateResult = { defer: true };
+        const updateResult = { iv: 1, salt: 1, message: "defer" };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
@@ -133,8 +136,9 @@ describe("Spec for update route", () => {
         expect(req.ciphers.exportUserData).not.toHaveBeenCalled();
     });
 
-    test("update (signed in) with body while db not listening returns cache update", async () => {
+    test("authenticated update request with payload while db not listening is deferred", async () => {
         const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -147,7 +151,7 @@ describe("Spec for update route", () => {
             { op: 3, val: { _id: 1, name: "squashing", history: [{}], group: 0 }}
         ];
 
-        const req = MockReq({ iv, name, password, updateKey: 1, update });
+        const req = MockReq({ iv, salt, name, password, updateKey: 1, update });
         const res = MockRes();
         
         expect("2" in req.app.locals.waitingUsers).toBe(false);
@@ -155,7 +159,7 @@ describe("Spec for update route", () => {
         await updateHandler(req, res, null, instance);
         
         expect("2" in req.app.locals.waitingUsers).toBe(false);
-        const updateResult = { defer: true };
+        const updateResult = { iv: 1, salt: 1, message: "defer" };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 
@@ -167,6 +171,7 @@ describe("Spec for update route", () => {
 
     test("update (signed in) with invalid updateKey returns self destruct", async () => {
         const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -175,7 +180,7 @@ describe("Spec for update route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const req = MockReq({ iv, name, password, updateKey: 2 });
+        const req = MockReq({ iv, salt, name, password, updateKey: 2 });
         const res = MockRes();
         
         expect(instance.userModel.users["2"].updateKey).toBe(1);
@@ -184,7 +189,7 @@ describe("Spec for update route", () => {
 
         expect(instance.userModel.users["2"].updateKey).toBe(1);
         
-        const updateResult = { selfDestruct: true };
+        const updateResult = { iv: 1, salt: 1, message: "selfDestruct" };
         expect(res.status).toHaveBeenCalledWith(403);
         expect(res.json).toHaveBeenCalledWith(updateResult);
 

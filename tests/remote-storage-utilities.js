@@ -68,17 +68,17 @@ class UserModel {
     const userArray = [];
     users.forEach(({ name, password }) => {
         const credentials = name + "/-/" + password;
-        userArray.push({ _id: this.currentId, credentials, iv: 1, updateKey: 1, data: this.currentId });
+        userArray.push({ _id: this.currentId, credentials, iv: 1, salt: 1, updateKey: 1, data: this.currentId });
         this.currentId += 1;
     });
     this.users = keyBy(userArray, "_id");
   }
 
-  create({ credentials, data, updateKey = 1, iv = 1 }) {
+  create({ credentials, data, updateKey = 1, iv = 1, salt = 1 }) {
       for (const { credentials: oldCredentials } of Object.values(this.users)) {
         if ( oldCredentials === credentials) return Promise.resolve(null);
       }
-      const newUser = { _id: this.currentId, credentials, updateKey, iv, data };
+      const newUser = { _id: this.currentId, credentials, updateKey, iv, salt, data };
       this.users[`${this.currentId}`] = newUser;
       this.currentId += 1;
     return Promise.resolve({ ...newUser });
@@ -155,25 +155,27 @@ const MockDB = (seed = {}) => {
   return { stateModel, invitationModel, userModel, userDataModel };
 };
 
-const MockReq = ({ iv, ticket, name, password, updateKey, update }, waitlist = {}) => {
+const MockReq = ({ iv, salt, ticket, name, password, updateKey, update }, waitlist = {}) => {
   const req = { 
         headers: {},
         ciphers: {
             revealInbound: jest.fn((x,y) => x),
             credentials: jest.fn((x) => Promise.resolve(x)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
-            generateIV: jest.fn(() => 1),
+            generateEntropy: jest.fn(() => { return { iv: 1, salt: 1 }; }),
             obscureUserData: jest.fn((w,x,y) => y),
             obscureUpdateKey: jest.fn((w,x,y) => y),
-            exportUserData: jest.fn((x,y) => { return { iv: 1, updateKey: x, userData: y }; }),
+            exportUserData: jest.fn((x,y) => { return { iv: 1, salt: 1, updateKey: x, userData: y }; }),
+            exportMessage: jest.fn((x,y) => { return { iv: 1, salt: 1, message: x }; }),
             revealUserData: jest.fn((x,y, data) => data),
             revealUpdateKey: jest.fn((x,y) => y.updateKey),
             revealKey: jest.fn((x,y) => parseInt(x)),
         },
         app: { locals: { waitingUsers: waitlist }}
     };
-    if (iv || name || password || ticket || update) req.body = {};
+    if (iv || salt || name || password || ticket || update) req.body = {};
     if (iv) req.body.iv = iv;
+    if (salt) req.body.salt = salt;
     if (ticket) req.body.ticket = ticket;
     if (name && password) req.body.credentials = name + "/-/" + password;
     else if (password) req.body.password = password;
@@ -186,6 +188,7 @@ const MockRes = () => {
   const res = {};
   res.status = jest.fn().mockReturnValue(res);
   res.json = jest.fn().mockReturnValue(res);
+  res.end = jest.fn();
   return res;
 }
 

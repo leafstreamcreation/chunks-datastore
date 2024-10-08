@@ -15,17 +15,21 @@ const { ERRORMSG } = require("../errors");
 
 
 router.get("/", (req, res, next) => {
-  res.status(200).send("Chonk");
+  res.status(200).end();
 });
+
+const sendMessage = (req, res, status, message, details) => {
+  return res.status(status).json(req.ciphers.exportMessage(message, details));
+}
 
 const loginOk = (res, payload) => res.status(200).json(payload);
 
 const loginHandler = async (req, res, next, { userModel = User, userDataModel = UserData }) => {
   const { credentials:cCred } = req.body;
   
-  if (!cCred) return res.status(400).json(ERRORMSG.MISSINGCREDENTIALS);
+  if (!cCred) return sendMessage(req, res, 400, ERRORMSG.MISSINGCREDENTIALS);
   const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS); 
-  const users = await userModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const users = await userModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   let user;
   for ( const [index, u] of users.entries()) {
     const match = await req.ciphers.compare(inCreds, u.credentials);
@@ -34,30 +38,30 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
       break;
     }
   }
-  if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
+  if (!user) return sendMessage(req, res, 403, ERRORMSG.INVALIDCREDENTIALS);
 
-  const { data } = await userDataModel.findById(user.data).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  if (!data) return res.status(500).json(ERRORMSG.CTD);
+  const { data } = await userDataModel.findById(user.data).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  if (!data) return sendMessage(req, res, 500, ERRORMSG.CTD);
   
   const userUpdating = req.app.locals.waitingUsers?.[user._id];
   if (userUpdating) {
-    //handle prior login attempt
     if ("login" in userUpdating) {
       const { res:oldRes, expireId:expire } = userUpdating.login;
-      oldRes.status(403).json(ERRORMSG.EXPIREDLOGIN);
+      sendMessage(req, oldRes, 403, ERRORMSG.EXPIREDLOGIN);
       clearTimeout(expire);
     }
     const rUserData = req.ciphers.revealUserData(inCreds, user, data);
     const rUpdateKey = req.ciphers.revealUpdateKey(inCreds, user);
-    const { iv, updateKey, userData } = req.ciphers.exportUserData(rUpdateKey, rUserData);
+    const { iv, salt, updateKey, userData } = req.ciphers.exportUserData(rUpdateKey, rUserData);
     const expireId = setTimeout((req, res, id) => {
-      res.status(403).json(ERRORMSG.EXPIREDLOGIN);
+      sendMessage(req, res, 403, ERRORMSG.EXPIREDLOGIN);
       delete req.app.locals.waitingUsers[id].login;
     }, 1000 * 10, req, res, user._id);
     req.app.locals.waitingUsers[user._id].login = {
       res, 
       payload: { 
         iv,
+        salt,
         updateKey,
         userData, 
       },
@@ -67,8 +71,8 @@ const loginHandler = async (req, res, next, { userModel = User, userDataModel = 
   else {
     const rUserData = req.ciphers.revealUserData(inCreds, user, data);
     const rUpdateKey = req.ciphers.revealUpdateKey(inCreds, user);
-    const { iv, updateKey, userData } = req.ciphers.exportUserData(rUpdateKey, rUserData);
-    return loginOk(res, { iv, updateKey, userData });
+    const { iv, salt, updateKey, userData } = req.ciphers.exportUserData(rUpdateKey, rUserData);
+    return loginOk(res, { iv, salt, updateKey, userData });
   }
 };
 router.post("/login", (req, res, next) => {
@@ -78,35 +82,35 @@ router.post("/login", (req, res, next) => {
 
 const signupHandler = async (req, res, next, { userModel = User, userDataModel = UserData, invitationModel = Invitation }) => {
   const { ticket:cTicket, credentials:cCred } = req.body;
-  if (!cCred) return res.status(400).json(ERRORMSG.MISSINGCREDENTIALS);
-  if (!cTicket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
+  if (!cCred) return sendMessage(req, res, 400, ERRORMSG.MISSINGCREDENTIALS);
+  if (!cTicket) return sendMessage(req, res, 400, ERRORMSG.MISSINGTICKET);
   const ticket = req.ciphers.revealInbound(cTicket, CIPHERS.TICKET);
   let invitation = null;
-  const pending = await invitationModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const pending = await invitationModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   for ( const i of pending) {
-    const match = await req.ciphers.compare(ticket, i.codeHash).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+    const match = await req.ciphers.compare(ticket, i.codeHash).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
     if (match) {
       invitation = i;
       break;
     }
   }
-  if (!invitation) return res.status(403).json(ERRORMSG.INVALIDTICKET);
+  if (!invitation) return sendMessage(req, res, 403, ERRORMSG.INVALIDTICKET);
   const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS);
-  const users = await userModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const users = await userModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   for ( const u of users) {
     const match = await req.ciphers.compare(inCreds, u.credentials);
-    if (match) return res.status(403).json({ ticketRefund: cTicket });
+    if (match) return sendMessage(req, res, 403, ERRORMSG.CREDENTIALSTAKEN);
   }
-  const credentials = await req.ciphers.credentials(inCreds).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  const initialIV = await req.ciphers.generateIV();
+  const credentials = await req.ciphers.credentials(inCreds).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  const initialEntropy = await req.ciphers.generateEntropy();
   const initialUserData = ["{}", [], []];
-  const data = req.ciphers.obscureUserData(inCreds, initialIV, initialUserData);
-  const cUpdateKey = req.ciphers.obscureUpdateKey(inCreds, initialIV, 1);
-  const newUserData = await userDataModel.create({ data }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  await userModel.create({ credentials, data: newUserData._id, iv: initialIV, updateKey: cUpdateKey }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  const { iv, updateKey, userData } = req.ciphers.exportUserData(1, initialUserData);
-  return res.status(200).json({ iv, updateKey, userData });
+  const data = req.ciphers.obscureUserData(inCreds, initialEntropy, initialUserData);
+  const cUpdateKey = req.ciphers.obscureUpdateKey(inCreds, initialEntropy, 1);
+  const newUserData = await userDataModel.create({ data }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  await userModel.create({ credentials, data: newUserData._id, iv: initialEntropy.iv, salt: initialEntropy.salt, updateKey: cUpdateKey }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  const { iv, salt, updateKey, userData } = req.ciphers.exportUserData(1, initialUserData);
+  return res.status(200).json({ iv, salt, updateKey, userData });
 };
 router.post("/signup", (req, res, next) => {
   signupHandler(req, res, next, { userModel: User, userDataModel: UserData, invitationModel: Invitation });
@@ -114,28 +118,28 @@ router.post("/signup", (req, res, next) => {
 
 const inviteHandler = async (req, res, next, { stateModel = State, invitationModel = Invitation }) => {
   const { password: cPassword, ticket: cTicket } = req.body;
-  if (!cTicket) return res.status(400).json(ERRORMSG.MISSINGTICKET);
-  if (!cPassword) return res.status(400).json(ERRORMSG.MISSINGPASSWORD);
+  if (!cTicket) return sendMessage(req, res, 400, ERRORMSG.MISSINGTICKET);
+  if (!cPassword) return sendMessage(req, res, 400, ERRORMSG.MISSINGPASSWORD);
 
-  const state = await stateModel.findOne().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const state = await stateModel.findOne().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   const password = req.ciphers.revealInbound(cPassword, CIPHERS.CREDENTIALS);
-  const match = await req.ciphers.compare(password, state.adminHash).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  if (!match) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
+  const match = await req.ciphers.compare(password, state.adminHash).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  if (!match) return sendMessage(req, res, 403, ERRORMSG.INVALIDCREDENTIALS);
 
   const ticket = req.ciphers.revealInbound(cTicket, CIPHERS.TICKET);
   let invitation = null;
-  const pending = await invitationModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const pending = await invitationModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   for ( const i of pending) {
-    const match = await req.ciphers.compare(ticket, i.codeHash).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+    const match = await req.ciphers.compare(ticket, i.codeHash).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
     if (match) {
       invitation = i;
       break;
     }
   }
-  if (invitation) return res.status(403).json(ERRORMSG.TICKETEXISTS);
-  const codeHash = await req.ciphers.credentials(ticket).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  invitationModel.create({ codeHash, expires: new Date(Date.now() + 1000 * 60 * 30) }).catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  return res.status(200).json({ ticket: cTicket });
+  if (invitation) return sendMessage(req, res, 403, ERRORMSG.TICKETEXISTS);
+  const codeHash = await req.ciphers.credentials(ticket).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  invitationModel.create({ codeHash, expires: new Date(Date.now() + 1000 * 60 * 30) }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  return res.status(200).end();
 };
 router.post("/invite", (req, res, next) => {
   inviteHandler(req, res, next, { stateModel: State, invitationModel: Invitation });
@@ -144,7 +148,7 @@ router.post("/invite", (req, res, next) => {
 const updateHandler = async (req, res, next, { userModel = User, userDataModel = UserData }) => {
   const { credentials: cCred, updateKey: cUpdateKey, update: cUpdate } = req.body;
   const inCreds = req.ciphers.revealInbound(cCred, CIPHERS.CREDENTIALS);
-  const users = await userModel.find().exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const users = await userModel.find().exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   let user;
   for ( const [index, u] of users.entries()) {
     const match = await req.ciphers.compare(inCreds, u.credentials);
@@ -153,61 +157,53 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
       break;
     }
   }
-  if (!user) return res.status(403).json(ERRORMSG.INVALIDCREDENTIALS);
+  if (!user) return sendMessage(req, res, 403, ERRORMSG.INVALIDCREDENTIALS);
   
-  //ok so we have the user
-  //next check the update
   const inUpdateKey = req.ciphers.revealInbound(cUpdateKey, CIPHERS.UPDATEKEY);
   const rUpdateKey = req.ciphers.revealUpdateKey(inCreds, user);
-  if (inUpdateKey !== rUpdateKey) return res.status(403).json({ selfDestruct: true });
+  if (inUpdateKey !== rUpdateKey) return sendMessage(req, res, 403, "selfDestruct");
 
-//update keys match
-//now assess whether the server will begin listening for update delivery
   const id = `${user._id}`;
   const listeningForUpdates = id in req.app.locals.waitingUsers;
   if (!cUpdate) {
-    if (listeningForUpdates) return res.status(200).json({ defer: true });
+    if (listeningForUpdates) return sendMessage(req, res, 200, "defer");
     req.app.locals.waitingUsers[id] = {};
     req.app.locals.waitingUsers[id].expireId = setTimeout((r, i) => {
       delete r.app.locals.waitingUsers[i];
     }, 1000 * 60 * 60 * 2.5, req, id);
-    return res.status(200).json({ listening: true });
+    return sendMessage(req, res, 200, "listening");
   }
-  if (!listeningForUpdates) return res.status(200).json({ defer: true });
+  if (!listeningForUpdates) return sendMessage(req, res, 200, "defer");
 
-  //there is a delivery and the server was listening for updates; process the data
-  const { data: oldData } = await userDataModel.findById(user.data).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  if (!oldData) return res.status(500).json(ERRORMSG.CTD);
+  const { data: oldData } = await userDataModel.findById(user.data).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  if (!oldData) return sendMessage(req, res, 500, ERRORMSG.CTD);
 
   const update = req.ciphers.revealInbound(cUpdate, CIPHERS.DATA);
   const rUserData = req.ciphers.revealUserData(inCreds, user, oldData);
   const newUserData = mergeUpdate(rUserData, update);
   const newUpdateKey = rUpdateKey + 1;
 
-  //there is now a new update key and new user data; write them to the db
-  const newIV = req.ciphers.generateIV();
-  const localData = req.ciphers.obscureUserData(inCreds, newIV, newUserData);
-  const localKey = req.ciphers.obscureUpdateKey(inCreds, newIV, newUpdateKey);
+  const newEntropy = req.ciphers.generateEntropy();
+  const localData = req.ciphers.obscureUserData(inCreds, newEntropy, newUserData);
+  const localKey = req.ciphers.obscureUpdateKey(inCreds, newEntropy, newUpdateKey);
 
-  //update data and updatekey
-  const writeNewKey = userModel.findByIdAndUpdate(user._id, { iv: newIV, updateKey: localKey }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
-  const writeNewData = userDataModel.findByIdAndUpdate(user.data, { data: localData }).exec().catch((error) => res.status(500).json({ ...ERRORMSG.CTD, error }));
+  const writeNewKey = userModel.findByIdAndUpdate(user._id, { iv: newEntropy.iv, salt: newEntropy.salt, updateKey: localKey }).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  const writeNewData = userDataModel.findByIdAndUpdate(user.data, { data: localData }).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   const [ updatedKey, updatedData ] = await Promise.all([writeNewKey, writeNewData]);
-  if (!updatedKey || !updatedData) return res.status(500).json(ERRORMSG.CTD);
+  if (!updatedKey || !updatedData) return sendMessage(req, res, 500, ERRORMSG.CTD);
 
-  //release a user that's waiting for an update before login
   const userWaiting = req.app.locals.waitingUsers[id].login;
   if (userWaiting) {
     const { res: loginRes } = req.app.locals.waitingUsers[id].login;
-    const { iv, updateKey, userData } = req.ciphers.exportUserData(newUpdateKey, newUserData);
-    loginOk(loginRes, { iv, updateKey, userData });
+    const { iv, salt, updateKey, userData } = req.ciphers.exportUserData(newUpdateKey, newUserData);
+    loginOk(loginRes, { iv, salt, updateKey, userData });
     clearTimeout(req.app.locals.waitingUsers[id].login.expireId);
     delete req.app.locals.waitingUsers[id].login;
   }
   clearTimeout(req.app.locals.waitingUsers[id].expireId);
   delete req.app.locals.waitingUsers[id];
-  const { iv, updateKey } = req.ciphers.exportUserData(newUpdateKey);
-  return res.status(200).json({ iv, updateKey });
+  const { iv, salt, updateKey } = req.ciphers.exportUserData(newUpdateKey);
+  return res.status(200).json({ iv, salt, updateKey });
 };
 router.post("/update", (req, res, next) => {
   updateHandler(req, res, next, { userModel: User, userDataModel: UserData });

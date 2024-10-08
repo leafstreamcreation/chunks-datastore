@@ -9,6 +9,7 @@ describe("Spec for login route", () => {
   
     test("login with valid credentials returns json data, and nextUpdateKey", async () => {
         const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -16,17 +17,17 @@ describe("Spec for login route", () => {
             { name, password }
         ];
         const instance =  MockDB({ users });
-        const req = MockReq({ iv, name, password });
+        const req = MockReq({ iv, salt, name, password });
         const res = MockRes();
         
         const u2Creds = name + SEPARATOR + password;
-        const user2 = { _id: 2, credentials: u2Creds, data: 2, updateKey: 1, iv: 1 };
+        const user2 = { _id: 2, credentials: u2Creds, data: 2, updateKey: 1, iv: 1, salt: 1 };
         expect(instance.userModel.users["2"]).toEqual(user2);
         expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], []]);
         expect(Object.values(instance.userModel.users).length).toBe(2);
     
         await login(req, res, null, instance);
-        const loginResponse = { iv: 1, updateKey: 1, userData: ["{}", [], []] };
+        const loginResponse = { iv: 1, salt: 1, updateKey: 1, userData: ["{}", [], []] };
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith(loginResponse);
 
@@ -39,6 +40,8 @@ describe("Spec for login route", () => {
     });
 
     test("login with invalid credentials returns errors", async () => {
+        const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -47,20 +50,22 @@ describe("Spec for login route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const noCred = MockReq({ name, password: null });
+        const noCred = MockReq({ iv, salt, name, password: null });
         const noCredRes = MockRes();
         await login(noCred, noCredRes, null, instance);
         expect(noCredRes.status).toHaveBeenCalledWith(400);
-        expect(noCredRes.json).toHaveBeenCalledWith(ERRORMSG.MISSINGCREDENTIALS);
+        expect(noCredRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.MISSINGCREDENTIALS });
 
-        const badPass = MockReq({ name, password: "foobar" });
+        const badPass = MockReq({ iv, salt, name, password: "foobar" });
         const badPassRes = MockRes();
         await login(badPass, badPassRes, null, instance);
         expect(badPassRes.status).toHaveBeenCalledWith(403);
-        expect(badPassRes.json).toHaveBeenCalledWith(ERRORMSG.INVALIDCREDENTIALS);
+        expect(badPassRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.INVALIDCREDENTIALS });
     });
 
     test("login waits for updates to complete", async () => {
+        const iv = 1;
+        const salt = 1;
         const password = "foo";
         const name = "user2";
         const users = [
@@ -69,8 +74,7 @@ describe("Spec for login route", () => {
         ];
         const instance =  MockDB({ users });
 
-        const u2Creds = name + SEPARATOR + password
-        const req = MockReq({ name, password }, { "2": {} });
+        const req = MockReq({ iv, salt, name, password }, { "2": {} });
         const res = MockRes();
 
         expect("login" in req.app.locals.waitingUsers["2"]).toBe(false);
@@ -79,7 +83,7 @@ describe("Spec for login route", () => {
 
         expect("login" in req.app.locals.waitingUsers["2"]).toBe(true);
         expect(req.app.locals.waitingUsers["2"].login.res).toEqual(res);
-        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ iv: 1, updateKey: 1, userData: ["{}", [], []] });
+        expect(req.app.locals.waitingUsers["2"].login.payload).toEqual({ iv: 1, salt: 1, updateKey: 1, userData: ["{}", [], []] });
         expect("expireId" in req.app.locals.waitingUsers["2"].login).toBe(true);
 
         clearInterval(req.app.locals.waitingUsers["2"].login.expireId);
