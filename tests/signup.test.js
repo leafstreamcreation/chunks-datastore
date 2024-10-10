@@ -45,9 +45,9 @@ describe("Spec for signup route", () => {
         expect(req.ciphers.compare).not.toHaveBeenCalledWith(credentials, credentials);
         expect(req.ciphers.credentials).toHaveBeenCalledWith(credentials);
         expect(req.ciphers.generateEntropy).toHaveBeenCalledTimes(1);
-        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, ["{}", [], []]);
-        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, 1);
-        expect(req.ciphers.exportUserData).toHaveBeenCalledWith(1, ["{}", [], []]);
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, JSON.stringify(["{}", [], []]));
+        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, '1');
+        expect(req.ciphers.exportUserData).toHaveBeenCalledWith('1', JSON.stringify(["{}", [], []]));
     });
 
     test("signup with invalid credentials returns errors", async () => {

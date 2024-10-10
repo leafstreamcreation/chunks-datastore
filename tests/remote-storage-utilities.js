@@ -159,16 +159,18 @@ const MockReq = ({ iv, salt, ticket, name, password, updateKey, update }, waitli
   const req = { 
         headers: {},
         ciphers: {
-            revealInbound: jest.fn((x,y) => x),
+            revealInbound: jest.fn((x,y) => { return typeof x === 'string' ? x : JSON.stringify(x); }),
             credentials: jest.fn((x) => Promise.resolve(x)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
             generateEntropy: jest.fn(() => { return { iv: 1, salt: 1 }; }),
-            obscureUserData: jest.fn((w,x,y) => y),
-            obscureUpdateKey: jest.fn((w,x,y) => y),
-            exportUserData: jest.fn((x,y) => { return { iv: 1, salt: 1, updateKey: x, userData: y }; }),
+            obscureUserData: jest.fn((w,x,y) => JSON.parse(y)),
+            obscureUpdateKey: jest.fn((w,x,y) => parseInt(y)),
+            exportUserData: jest.fn((x,y) => { 
+              return y ? { iv: 1, salt: 1, updateKey: parseInt(x), userData: JSON.parse(y) } : { iv: 1, salt: 1, updateKey: parseInt(x) }; 
+            }),
             exportMessage: jest.fn((x,y) => { return { iv: 1, salt: 1, message: x }; }),
-            revealUserData: jest.fn((x,y, data) => data),
-            revealUpdateKey: jest.fn((x,y) => y.updateKey),
+            revealUserData: jest.fn((x,y, data) => JSON.stringify(data)),
+            revealUpdateKey: jest.fn((x,y) => `${y.updateKey}`),
         },
         app: { locals: { waitingUsers: waitlist }}
     };

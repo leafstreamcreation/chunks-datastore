@@ -35,7 +35,7 @@ describe("Spec for login route", () => {
         expect(req.ciphers.compare).toHaveBeenCalledWith(u2Creds, instance.userModel.users["2"].credentials);
         expect(req.ciphers.revealUserData).toHaveBeenCalledWith(u2Creds, user2, instance.userDataModel.entries["2"].data);
         expect(req.ciphers.revealUpdateKey).toHaveBeenCalledWith(u2Creds, user2);
-        expect(req.ciphers.exportUserData).toHaveBeenCalledWith(1, ["{}", [], []]);
+        expect(req.ciphers.exportUserData).toHaveBeenCalledWith("1", JSON.stringify(["{}", [], []]));
     });
 
     test("login with invalid credentials returns errors", async () => {

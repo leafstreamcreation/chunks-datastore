@@ -46,8 +46,9 @@ describe("Spec for update route", () => {
         expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, process.env.DATA_KEY);
         expect(req.ciphers.revealUserData).toHaveBeenCalledWith(credentials, user2, user2Data);
         expect(req.ciphers.generateEntropy).toHaveBeenCalled();
-        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
-        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, 2);
+        expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, JSON.stringify(["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]));
+        expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, '2');
+        expect(req.ciphers.exportUserData).toHaveBeenCalledWith('2');
 
         expect("2" in req.app.locals.waitingUsers).toBe(false);
         
@@ -55,7 +56,7 @@ describe("Spec for update route", () => {
         expect(instance.userDataModel.entries["2"].data).toEqual(["{}", [], [update[0].val]]);
         
         const mockLoginPayload = { iv: 1, salt: 1, updateKey: 2, userData: ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]] };
-        expect(req.ciphers.exportUserData).toHaveBeenCalledWith(2, ["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]);
+        expect(req.ciphers.exportUserData).toHaveBeenCalledWith('2', JSON.stringify(["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]));
         expect(loginRes.status).toHaveBeenCalledWith(200);
         expect(loginRes.json).toHaveBeenCalledWith(mockLoginPayload);
 
@@ -198,7 +199,7 @@ describe("Spec for update route", () => {
         expect(req.ciphers.exportUserData).not.toHaveBeenCalled();
     });
 
-    test("unauthenticated update requests or requests missing keys returns errors", async () => {
+    test("unauthenticated update requests or requests missing keys or requests containing updates with invalid JSON returns errors", async () => {
         const iv = 1;
         const salt = 1;
         const password = "foo";
@@ -226,5 +227,7 @@ describe("Spec for update route", () => {
         await updateHandler(badPass, badPassRes, null, instance);
         expect(badPassRes.status).toHaveBeenCalledWith(403);
         expect(badPassRes.json).toHaveBeenCalledWith({ iv: 1, salt: 1, message: ERRORMSG.INVALIDCREDENTIALS });
+
+        //add invalid json test
     });
 });

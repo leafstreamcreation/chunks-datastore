@@ -102,13 +102,13 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
   }
   const credentials = await req.ciphers.credentials(inCreds).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   const initialEntropy = await req.ciphers.generateEntropy();
-  const initialUserData = ["{}", [], []];
+  const initialUserData = JSON.stringify(["{}", [], []]);
   const data = req.ciphers.obscureUserData(inCreds, initialEntropy, initialUserData);
-  const cUpdateKey = req.ciphers.obscureUpdateKey(inCreds, initialEntropy, 1);
+  const cUpdateKey = req.ciphers.obscureUpdateKey(inCreds, initialEntropy, "1");
   const newUserData = await userDataModel.create({ data }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   await userModel.create({ credentials, data: newUserData._id, iv: initialEntropy.iv, salt: initialEntropy.salt, updateKey: cUpdateKey }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
-  const { iv, salt, updateKey, userData } = req.ciphers.exportUserData(1, initialUserData);
+  const { iv, salt, updateKey, userData } = req.ciphers.exportUserData("1", initialUserData);
   return res.status(200).json({ iv, salt, updateKey, userData });
 };
 router.post("/signup", (req, res, next) => {
@@ -181,8 +181,8 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
 
   const update = req.ciphers.revealInbound(cUpdate, process.env.DATA_KEY);
   const rUserData = req.ciphers.revealUserData(inCreds, user, oldData);
-  const newUserData = mergeUpdate(rUserData, update);
-  const newUpdateKey = rUpdateKey + 1;
+  const newUserData = JSON.stringify(mergeUpdate(JSON.parse(rUserData), JSON.parse(update)));
+  const newUpdateKey = `${parseInt(rUpdateKey) + 1}`;
 
   const newEntropy = req.ciphers.generateEntropy();
   const localData = req.ciphers.obscureUserData(inCreds, newEntropy, newUserData);
