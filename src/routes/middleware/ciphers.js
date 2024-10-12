@@ -28,7 +28,7 @@ async function cipherKey(creds, salt) {
 
 async function encrypt(iv, key, text) {
   const plaintext = new TextEncoder().encode(text);
- return await crypto.subtle.encrypt(
+  const encrypted = await crypto.subtle.encrypt(
   {
     name: "AES-GCM",
     iv,
@@ -37,6 +37,7 @@ async function encrypt(iv, key, text) {
   key,
   plaintext,
 );
+  return new Uint8Array(encrypted);
 }
 
 async function decrypt(iv, key, ciphertext) {
@@ -66,33 +67,41 @@ module.exports = (req, res, next) => {
   };
 
   const generateEntropy = () => {
-    return { 
-      iv: crypto.getRandomValues(new Uint8Array(process.env.AES_IV_BYTES)), 
-      salt: crypto.getRandomValues(new Uint8Array(process.env.PBKDF2_SALT_BYTES)), 
-    };
+    const iv = crypto.getRandomValues(new Uint8Array(process.env.AES_IV_BYTES));
+    const salt = crypto.getRandomValues(new Uint8Array(process.env.PBKDF2_SALT_BYTES));
+    return { iv, salt };
   };
+
+  const wrapEntropyForStorage = ({ iv, salt }) => {
+    return { iv: Buffer.from(iv.buffer), salt: Buffer.from(salt.buffer) };
+  }
   
   const obscureUserData = async (creds, entropy, userData) => {
     const key = await cipherKey(creds + process.env.DATA_KEY + process.env.STORAGE_KEY, entropy.salt);
-    return await encrypt(entropy.iv, key, userData);
+    const uInt8Ciphertext = await encrypt(entropy.iv, key, userData);
+    return Buffer.from(uInt8Ciphertext.buffer);
   };
 
   const obscureUpdateKey = async (creds, entropy, updateKey) => {
     const key = await cipherKey(creds + process.env.UPDATE_KEY + process.env.STORAGE_KEY, entropy.salt);
-    return await encrypt(entropy.iv, key, updateKey);
+    const uInt8Ciphertext = await encrypt(entropy.iv, key, updateKey);
+    return Buffer.from(uInt8Ciphertext.buffer);
   };
   
   const revealUpdateKey = async (credentials, user) => {
-
+    const salt = new Uint8Array(user.salt.buffer);
+    const iv = new Uint8Array(user.iv.buffer);
+    const updateKeyCipher = new Uint8Array(user.updateKey.buffer);
+    const key = await cipherKey(credentials + process.env.UPDATE_KEY + process.env.STORAGE_KEY, salt);
+    return await decrypt(iv, key, updateKeyCipher);
   };
 
   const revealUserData = async (credentials, user, data) => {
-    //replace with webcrypto
-
-    // const key = `${name}${process.env.APP_SIGNATURE}${user.updateArg}`;
-    // const decData = CryptoJS.enc.Base64.parse(user.data).toString(CryptoJS.enc.Utf8);
-    // const bytes = CryptoJS.AES.decrypt(decData, key).toString(CryptoJS.enc.Utf8);
-    // return (!bytes || bytes === "") ? "" : JSON.parse(bytes);
+    const salt = new Uint8Array(user.salt.buffer);
+    const iv = new Uint8Array(user.iv.buffer);
+    const dataCipher = new Uint8Array(data.buffer);
+    const key = await cipherKey(credentials + process.env.DATA_KEY + process.env.STORAGE_KEY, salt);
+    return await decrypt(iv, key, dataCipher);
   };
 
   const exportUserData = async (updateKey, data) => {
@@ -115,6 +124,7 @@ module.exports = (req, res, next) => {
 
   req.ciphers = { 
     generateEntropy,
+    wrapEntropyForStorage,
     obscureUserData,
     obscureUpdateKey,
     exportUserData,

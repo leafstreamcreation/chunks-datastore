@@ -101,12 +101,13 @@ const signupHandler = async (req, res, next, { userModel = User, userDataModel =
     if (match) return sendMessage(req, res, 403, ERRORMSG.CREDENTIALSTAKEN);
   }
   const credentials = await req.ciphers.credentials(inCreds).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
-  const initialEntropy = await req.ciphers.generateEntropy();
   const initialUserData = JSON.stringify(["{}", [], []]);
+  const initialEntropy = await req.ciphers.generateEntropy();
   const data = req.ciphers.obscureUserData(inCreds, initialEntropy, initialUserData);
-  const cUpdateKey = req.ciphers.obscureUpdateKey(inCreds, initialEntropy, "1");
   const newUserData = await userDataModel.create({ data }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
-  await userModel.create({ credentials, data: newUserData._id, iv: initialEntropy.iv, salt: initialEntropy.salt, updateKey: cUpdateKey }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  const cUpdateKey = req.ciphers.obscureUpdateKey(inCreds, initialEntropy, "1");
+  const storageEntropy = req.ciphers.wrapEntropyForStorage(initialEntropy);
+  await userModel.create({ credentials, data: newUserData._id, iv: storageEntropy.iv, salt: storageEntropy.salt, updateKey: cUpdateKey }).catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   await invitationModel.findByIdAndDelete(invitation._id).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   const { iv, salt, updateKey, userData } = req.ciphers.exportUserData("1", initialUserData);
   return res.status(200).json({ iv, salt, updateKey, userData });
@@ -187,8 +188,9 @@ const updateHandler = async (req, res, next, { userModel = User, userDataModel =
   const newEntropy = req.ciphers.generateEntropy();
   const localData = req.ciphers.obscureUserData(inCreds, newEntropy, newUserData);
   const localKey = req.ciphers.obscureUpdateKey(inCreds, newEntropy, newUpdateKey);
+  const storageEntropy = req.ciphers.wrapEntropyForStorage(newEntropy);
 
-  const writeNewKey = userModel.findByIdAndUpdate(user._id, { iv: newEntropy.iv, salt: newEntropy.salt, updateKey: localKey }).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
+  const writeNewKey = userModel.findByIdAndUpdate(user._id, { iv: storageEntropy.iv, salt: storageEntropy.salt, updateKey: localKey }).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   const writeNewData = userDataModel.findByIdAndUpdate(user.data, { data: localData }).exec().catch((error) => sendMessage(req, res, 500, ERRORMSG.CTD, error));
   const [ updatedKey, updatedData ] = await Promise.all([writeNewKey, writeNewData]);
   if (!updatedKey || !updatedData) return sendMessage(req, res, 500, ERRORMSG.CTD);

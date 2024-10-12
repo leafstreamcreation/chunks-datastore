@@ -46,6 +46,7 @@ describe("Spec for update route", () => {
         expect(req.ciphers.revealInbound).toHaveBeenCalledWith(update, process.env.DATA_KEY);
         expect(req.ciphers.revealUserData).toHaveBeenCalledWith(credentials, user2, user2Data);
         expect(req.ciphers.generateEntropy).toHaveBeenCalled();
+        expect(req.ciphers.wrapEntropyForStorage).toHaveBeenCalled();
         expect(req.ciphers.obscureUserData).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, JSON.stringify(["{}", [], [{ id: 1, name: "squashing", history: [{}], group: 0 }]]));
         expect(req.ciphers.obscureUpdateKey).toHaveBeenCalledWith(credentials, { iv: 1, salt: 1 }, '2');
         expect(req.ciphers.exportUserData).toHaveBeenCalledWith('2');

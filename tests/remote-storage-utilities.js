@@ -163,6 +163,7 @@ const MockReq = ({ iv, salt, ticket, name, password, updateKey, update }, waitli
             credentials: jest.fn((x) => Promise.resolve(x)),
             compare: jest.fn((x,y) => Promise.resolve(x===y)),
             generateEntropy: jest.fn(() => { return { iv: 1, salt: 1 }; }),
+            wrapEntropyForStorage: jest.fn((x) => x),
             obscureUserData: jest.fn((w,x,y) => JSON.parse(y)),
             obscureUpdateKey: jest.fn((w,x,y) => parseInt(y)),
             exportUserData: jest.fn((x,y) => { 

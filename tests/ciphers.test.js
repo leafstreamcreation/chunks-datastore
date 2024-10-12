@@ -91,8 +91,9 @@ describe("Spec for crypto functions", () => {
         const entropy = req.ciphers.generateEntropy();
         
         const encrypted = await req.ciphers.obscureUserData(credentials, entropy, plaintext);
-
-        const decrypted = await cipherTestDecrypt(credentials + process.env.DATA_KEY + process.env.STORAGE_KEY, entropy.iv, entropy.salt, encrypted);
+        const cipherUInt8 = new Uint8Array(encrypted.buffer);
+        
+        const decrypted = await cipherTestDecrypt(credentials + process.env.DATA_KEY + process.env.STORAGE_KEY, entropy.iv, entropy.salt, cipherUInt8);
 
         expect(decrypted).toEqual(plaintext);
     });
@@ -108,8 +109,9 @@ describe("Spec for crypto functions", () => {
         const entropy = req.ciphers.generateEntropy();
         
         const encrypted = await req.ciphers.obscureUpdateKey(credentials, entropy, plaintext);
+        const cipherUInt8 = new Uint8Array(encrypted.buffer);
 
-        const decrypted = await cipherTestDecrypt(credentials + process.env.UPDATE_KEY + process.env.STORAGE_KEY, entropy.iv, entropy.salt, encrypted);
+        const decrypted = await cipherTestDecrypt(credentials + process.env.UPDATE_KEY + process.env.STORAGE_KEY, entropy.iv, entropy.salt, cipherUInt8);
 
         expect(decrypted).toEqual(plaintext);
     });
@@ -169,60 +171,79 @@ describe("Spec for crypto functions", () => {
     });
 
     test("revealInbound uses AES GCM", async () => {
-        //make plaintext credentials
         const inboundCredentials = "user2" + SEPARATOR + "foo";
-        //encrypt with test encrypt function
         const encryptedInboundCredentials = await cipherTestEncrypt(process.env.CREDENTIAL_KEY + process.env.TRANSMISSION_KEY, req.body.iv, req.body.salt, inboundCredentials);
-        //decrypt with revealInbound
+        
         const decryptedCredentials = await req.ciphers.revealInbound(encryptedInboundCredentials, process.env.CREDENTIAL_KEY);
-        //verify that the decrypted credentials match the plaintext credentials
         expect(decryptedCredentials).toEqual(inboundCredentials);
     });
-    
-    // test("revealUserData and obscureUserData reverse each other", async () => {
-    //     const x = await require("../src/db");
 
-    //     const emptyData = req.ciphers.obscureUserData([], "Test1", 1);
-    //     const newEmptyData = await UserData.create({ data: emptyData });
-    //     const newUser = { token: "Test1", credentials: "TestPass1", data: newEmptyData._id, updateKey: 1 };
-    //     const emptyActsUser = await User.create(newUser);
-    //     const later = await User.findById(emptyActsUser._id).exec();
-    //     const emptyId = later.data;
-    //     const { data:laterEmptyData } = await UserData.findById(emptyId).exec();
-    //     const popEmpty = { _id: later._id, credentials: later.credentials, token: later.token, data: laterEmptyData, updateArg: later.updateKey }
-    //     const emptyActsResult = req.ciphers.revealUserData("Test1", popEmpty);
-    //     await User.findByIdAndDelete(emptyActsUser._id).exec();
-    //     await UserData.findByIdAndDelete(emptyId).exec();
-    //     expect(emptyActsResult).toEqual([]);
+    test("revealUpdateKey and obscureUpdateKey reverse each other", async () => {
+        const password = "foo";
+        const name = "user2";
+        const credentials = name + SEPARATOR + password;
+        const literal = '1';
+        const { iv, salt } = req.ciphers.generateEntropy();
+        const user = { iv: Buffer.from(iv.buffer), salt: Buffer.from(salt.buffer) };
+
+        user.updateKey = await req.ciphers.obscureUpdateKey(credentials, { iv, salt }, literal);
+
+        const decryptedUpdateKey = await req.ciphers.revealUpdateKey(credentials, user);
+        expect(decryptedUpdateKey).toEqual(literal);
+    });
+    
+    test("revealUserData and obscureUserData reverse each other", async () => {
+        const x = await require("../src/db");
+
+        const password = "foo";
+        const user1Creds = "user1" + SEPARATOR + password;
+
+        const entropy1 = req.ciphers.generateEntropy();
+        const emptyDataString = JSON.stringify([]);
+        const user1UpdateKey = await req.ciphers.obscureUpdateKey(user1Creds, entropy1, "1");
+
+        const emptyData = await req.ciphers.obscureUserData(user1Creds, entropy1, emptyDataString);
+        const newEmptyData = await UserData.create({ data: emptyData });
+        const newUser = { credentials: user1Creds, data: newEmptyData._id, iv: Buffer.from(entropy1.iv.buffer), salt: Buffer.from(entropy1.salt.buffer), updateKey: user1UpdateKey };
+        const emptyActsUser = await User.create(newUser);
+
+        const later = await User.findById(emptyActsUser._id).exec();
+        const emptyId = later.data;
+        const { data:laterEmptyData } = await UserData.findById(emptyId).exec();
+        
+        console.log(later, laterEmptyData);
+        const emptyActsResult = await req.ciphers.revealUserData(user1Creds, later, laterEmptyData);
+
+        await User.findByIdAndDelete(emptyActsUser._id).exec();
+        await UserData.findByIdAndDelete(emptyId).exec();
+
+        expect(emptyActsResult).toEqual(emptyDataString);
         
         
-    //     const startingData = [ "foo", [], [
-    //         { id: 1, name: "running", history: [{}], group: 0 },
-    //         { id: 2, name: "biking", history: [{}], group: 0 }
-    //     ]];
-    //     const data = req.ciphers.obscureUserData(startingData, "Test", 1);
-    //     const newData = await UserData.create({ data });
-    //     const newUser2 = { token: "Test", credentials: "TestPass", data:newData._id, updateKey: 1 };
-    //     const user = await User.create(newUser2);
-    //     const after = await User.findById(user._id).exec();
-    //     const id = after.data;
-    //     const { data:afterData } = await UserData.findById(id).exec();
-    //     const pop = { _id: after._id, credentials: after.credentials, token: after.token, data: afterData, updateArg: after.updateKey }
-    //     const result = req.ciphers.revealUserData("Test", pop);
-    //     await User.findByIdAndDelete(user._id).exec();
-    //     await UserData.findByIdAndDelete(id).exec();
-    //     x.connections[0].close();
+        const user2Creds = "user2" + SEPARATOR + password;
+        const entropy2 = req.ciphers.generateEntropy();
+        const startingData = JSON.stringify([ "foo", [], [
+            { id: 1, name: "running", history: [{}], group: 0 },
+            { id: 2, name: "biking", history: [{}], group: 0 }
+        ]]);
+        const user2UpdateKey = await req.ciphers.obscureUpdateKey(user2Creds, entropy2, "1");
+        
+        const data = req.ciphers.obscureUserData(user2Creds, entropy2, startingData);
+        const newData = await UserData.create({ data });
+        const newUser2 = { credentials: user2Creds, data:newData._id, iv: Buffer.from(entropy2.iv.buffer), salt: Buffer.from(entropy2.salt.buffer), updateKey: user2UpdateKey };
+        const user = await User.create(newUser2);
 
-    //     expect(result).toEqual(startingData);
-    // });
+        const after = await User.findById(user._id).exec();
+        const id = after.data;
+        const { data:afterData } = await UserData.findById(id).exec();
+        
+        const result = req.ciphers.revealUserData(user2Creds, after, afterData);
+
+        await User.findByIdAndDelete(user._id).exec();
+        await UserData.findByIdAndDelete(id).exec();
+        x.connections[0].close();
+
+        expect(result).toEqual(startingData);
+    });
     
-    // test("revealUpdateKey and obscureUpdateKey reverse each other", async () => {
-    //     const x = await require("../src/db");
-
-    //     const name = "Derek";
-    //     const literal = 1;
-    //     const { out } = req.ciphers.updateKeyGen(literal, name);
-    //     const value = req.ciphers.revealKey(out, name);
-    //     expect(value).toBe(1);
-    // });
 });
