@@ -210,12 +210,15 @@ describe("Spec for crypto functions", () => {
         const later = await User.findById(emptyActsUser._id).exec();
         const emptyId = later.data;
         const { data:laterEmptyData } = await UserData.findById(emptyId).exec();
-        
-        console.log(later, laterEmptyData);
-        const emptyActsResult = await req.ciphers.revealUserData(user1Creds, later, laterEmptyData);
-
         await User.findByIdAndDelete(emptyActsUser._id).exec();
         await UserData.findByIdAndDelete(emptyId).exec();
+        console.log("iv comp old->new: ", newUser.iv.compare(later.iv));
+        console.log("salt comp old->new: ", newUser.salt.compare(later.salt));
+        console.log("data comp old->new: ", emptyData.compare(laterEmptyData));
+        
+        console.log(later, laterEmptyData);
+
+        const emptyActsResult = await req.ciphers.revealUserData(user1Creds, later, laterEmptyData);
 
         expect(emptyActsResult).toEqual(emptyDataString);
         
@@ -237,11 +240,12 @@ describe("Spec for crypto functions", () => {
         const id = after.data;
         const { data:afterData } = await UserData.findById(id).exec();
         
-        const result = req.ciphers.revealUserData(user2Creds, after, afterData);
-
         await User.findByIdAndDelete(user._id).exec();
         await UserData.findByIdAndDelete(id).exec();
         x.connections[0].close();
+
+        const result = req.ciphers.revealUserData(user2Creds, after, afterData);
+
 
         expect(result).toEqual(startingData);
     });
